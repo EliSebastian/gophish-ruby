@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "lib/gophish_ruby/version"
+require_relative "lib/gophish/version"
 
 Gem::Specification.new do |spec|
   spec.name = "gophish-ruby"
-  spec.version = GophishRuby::VERSION
+  spec.version = Gophish::VERSION
   spec.authors = ["Eli Sebastian Herrera Aguilar"]
   spec.email = ["esrbastianherrera@gmail.com"]
 
