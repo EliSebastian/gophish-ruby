@@ -3,7 +3,6 @@ require_relative 'gophish/configuration'
 require_relative 'gophish/base'
 require_relative 'gophish/group'
 
-
 module Gophish
   class << self
     attr_writer :configuration
