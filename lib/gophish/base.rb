@@ -4,8 +4,8 @@ require 'active_model'
 require 'active_record'
 require 'json'
 require 'uri'
-
 require_relative 'configuration'
+
 module Gophish
   class Base
     include HTTParty
