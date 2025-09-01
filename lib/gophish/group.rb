@@ -9,6 +9,8 @@ module Gophish
     attribute :modified_date, :string
     attribute :targets
 
+    define_attribute_methods :id, :name, :modified_date, :targets
+
     validates :name, presence: true
     validates :targets, presence: true
     validate :validate_targets_structure
