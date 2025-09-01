@@ -10,6 +10,7 @@ This document provides detailed API reference for the Gophish Ruby SDK.
 - [Template Class](#template-class)
 - [Page Class](#page-class)
 - [SMTP Class](#smtp-class)
+- [Campaign Class](#campaign-class)
 - [Error Handling](#error-handling)
 - [Examples](#examples)
 
@@ -408,6 +409,7 @@ The `Gophish::Template` class represents an email template in Gophish.
 |-----------|------|----------|-------------|
 | `id` | Integer | No | Unique template identifier (set by server) |
 | `name` | String | Yes | Template name |
+| `envelope_sender` | String | No | Envelope sender email address for advanced delivery control |
 | `subject` | String | No | Email subject line |
 | `text` | String | No | Plain text email content |
 | `html` | String | No | HTML email content |
@@ -532,6 +534,22 @@ Get the number of attachments.
 puts "Attachments: #{template.attachment_count}"
 ```
 
+##### `#has_envelope_sender?`
+
+Check if template has an envelope sender configured.
+
+**Returns:** Boolean
+
+**Example:**
+
+```ruby
+template = Gophish::Template.new(envelope_sender: "noreply@company.com")
+puts template.has_envelope_sender?  # => true
+
+template = Gophish::Template.new
+puts template.has_envelope_sender?  # => false
+```
+
 #### Usage Examples
 
 ##### Create a Template
@@ -567,6 +585,33 @@ image_content = File.read("logo.png")
 template.add_attachment(image_content, "image/png", "logo.png")
 
 template.save
+```
+
+##### Template with Envelope Sender
+
+```ruby
+# Create template with envelope sender for better deliverability
+template = Gophish::Template.new(
+  name: "Corporate IT Update",
+  envelope_sender: "noreply@company.com",  # Separate envelope sender
+  subject: "Important IT Security Update",
+  html: <<~HTML
+    <html>
+    <body>
+      <h1>IT Security Department</h1>
+      <p>We've detected suspicious activity on your account.</p>
+      <p><a href="{{.URL}}">Click here to verify your account</a></p>
+      <p>Thank you,<br>IT Security Team</p>
+    </body>
+    </html>
+  HTML
+)
+
+if template.save
+  puts "Template created with envelope sender"
+  puts "Envelope sender: #{template.envelope_sender}"
+  puts "Has envelope sender: #{template.has_envelope_sender?}"
+end
 ```
 
 ##### Import from Email
@@ -1276,6 +1321,552 @@ unless smtp.has_authentication?
   puts "ℹ️  INFO: No authentication configured."
   puts "   Ensure your SMTP server allows unauthenticated sending."
 end
+```
+
+## Campaign Class
+
+The `Gophish::Campaign` class represents a phishing campaign that orchestrates the sending of phishing emails to target groups using templates, landing pages, and SMTP profiles.
+
+### Class: `Gophish::Campaign < Gophish::Base`
+
+#### Attributes
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | Integer | No | Unique campaign identifier (set by server) |
+| `name` | String | Yes | Campaign name |
+| `created_date` | String | No | Campaign creation timestamp (set by server) |
+| `launch_date` | String | No | When the campaign should start sending emails |
+| `send_by_date` | String | No | Deadline for sending all campaign emails |
+| `completed_date` | String | No | When the campaign was completed (set by server) |
+| `template` | Hash/Object | Yes | Reference to email template (can be hash with name or Template instance) |
+| `page` | Hash/Object | Yes | Reference to landing page (can be hash with name or Page instance) |
+| `status` | String | No | Current campaign status (e.g., "In progress", "Completed") |
+| `results` | Array | No | Array of Result instances showing target interactions |
+| `groups` | Array | Yes | Array of target groups (can be hashes with names or Group instances) |
+| `timeline` | Array | No | Array of Event instances showing campaign timeline |
+| `smtp` | Hash/Object | Yes | Reference to SMTP profile (can be hash with name or Smtp instance) |
+| `url` | String | Yes | Base URL for the campaign |
+
+#### Validations
+
+- `name` must be present
+- `template` must be present (reference to existing template)
+- `page` must be present (reference to existing landing page)
+- `groups` must be present and non-empty (references to existing groups)
+- `smtp` must be present (reference to existing SMTP profile)
+- `url` must be present
+- All groups must have names if provided as hashes
+- All results must have email addresses
+- All timeline events must have time and message
+
+#### Class Methods
+
+##### `.get_results(id)`
+
+Get campaign results by campaign ID without loading the full campaign object.
+
+**Parameters:**
+
+- `id` (Integer) - Campaign ID
+
+**Returns:** Array of result hashes
+
+**Raises:**
+
+- `StandardError` if campaign not found or API request fails
+
+**Example:**
+
+```ruby
+results = Gophish::Campaign.get_results(1)
+puts "Campaign has #{results.length} results"
+```
+
+##### `.get_summary(id)`
+
+Get campaign summary statistics by ID without loading the full campaign object.
+
+**Parameters:**
+
+- `id` (Integer) - Campaign ID
+
+**Returns:** Hash of summary statistics
+
+**Raises:**
+
+- `StandardError` if campaign not found or API request fails
+
+**Example:**
+
+```ruby
+summary = Gophish::Campaign.get_summary(1)
+puts "Campaign stats: #{summary['stats']}"
+```
+
+##### `.complete(id)`
+
+Complete a campaign by ID without loading the full campaign object.
+
+**Parameters:**
+
+- `id` (Integer) - Campaign ID
+
+**Returns:** Hash with success status
+
+**Raises:**
+
+- `StandardError` if campaign not found or API request fails
+
+**Example:**
+
+```ruby
+result = Gophish::Campaign.complete(1)
+puts "Campaign completed: #{result['success']}"
+```
+
+#### Instance Methods
+
+##### `#get_results`
+
+Get detailed campaign results for this campaign instance.
+
+**Returns:** Array of parsed response data
+
+**Example:**
+
+```ruby
+campaign = Gophish::Campaign.find(1)
+results = campaign.get_results
+puts "Total targets: #{results.length}"
+```
+
+##### `#get_summary`
+
+Get campaign summary statistics for this campaign instance.
+
+**Returns:** Hash of summary data
+
+**Example:**
+
+```ruby
+campaign = Gophish::Campaign.find(1)
+summary = campaign.get_summary
+puts "Campaign summary: #{summary}"
+```
+
+##### `#complete!`
+
+Complete the campaign and update the status attribute.
+
+**Returns:** Hash with success status
+
+**Side Effects:**
+
+- Updates `status` attribute to 'Completed' on success
+
+**Example:**
+
+```ruby
+campaign = Gophish::Campaign.find(1)
+if campaign.in_progress?
+  result = campaign.complete!
+  puts "Campaign completed: #{result['success']}"
+  puts "New status: #{campaign.status}"
+end
+```
+
+##### `#in_progress?`
+
+Check if campaign is currently running.
+
+**Returns:** Boolean (true if status is "In progress")
+
+**Example:**
+
+```ruby
+if campaign.in_progress?
+  puts "Campaign is actively running"
+end
+```
+
+##### `#completed?`
+
+Check if campaign has been completed.
+
+**Returns:** Boolean (true if status is "Completed")
+
+**Example:**
+
+```ruby
+if campaign.completed?
+  puts "Campaign has finished"
+end
+```
+
+##### `#launched?`
+
+Check if campaign has a launch date set.
+
+**Returns:** Boolean (true if launch_date is not blank)
+
+**Example:**
+
+```ruby
+if campaign.launched?
+  puts "Campaign launched at: #{campaign.launch_date}"
+end
+```
+
+##### `#has_send_by_date?`
+
+Check if campaign has a send-by deadline configured.
+
+**Returns:** Boolean (true if send_by_date is not blank)
+
+**Example:**
+
+```ruby
+if campaign.has_send_by_date?
+  puts "Must complete sending by: #{campaign.send_by_date}"
+end
+```
+
+#### Nested Classes
+
+##### `Gophish::Campaign::Result`
+
+Represents individual target results within a campaign.
+
+**Attributes:**
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `id` | String | Result identifier |
+| `first_name` | String | Target's first name |
+| `last_name` | String | Target's last name |
+| `position` | String | Target's position |
+| `email` | String | Target's email address |
+| `status` | String | Current result status |
+| `ip` | String | IP address of target interactions |
+| `latitude` | Float | Geographic latitude |
+| `longitude` | Float | Geographic longitude |
+| `send_date` | String | When email was sent |
+| `reported` | Boolean | Whether target reported the email |
+| `modified_date` | String | Last modification timestamp |
+
+**Instance Methods:**
+
+- `#reported?` - Check if target reported the phishing email
+- `#clicked?` - Check if target clicked the phishing link (status == "Clicked Link")
+- `#opened?` - Check if target opened the email (status == "Email Opened")
+- `#sent?` - Check if email was sent to target (status == "Email Sent")
+- `#submitted_data?` - Check if target submitted data on landing page (status == "Submitted Data")
+
+##### `Gophish::Campaign::Event`
+
+Represents timeline events within a campaign.
+
+**Attributes:**
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `email` | String | Target email associated with event |
+| `time` | String | Event timestamp |
+| `message` | String | Event description |
+| `details` | String | Additional event details (JSON string) |
+
+**Instance Methods:**
+
+- `#has_details?` - Check if event has additional details
+- `#parsed_details` - Parse details JSON into hash (returns empty hash on parse error)
+
+#### Usage Examples
+
+##### Create a Basic Campaign
+
+```ruby
+campaign = Gophish::Campaign.new(
+  name: "Q1 Security Awareness Training",
+  template: { name: "Phishing Template" },  # Reference existing template by name
+  page: { name: "Login Page" },             # Reference existing landing page by name
+  groups: [{ name: "Marketing Team" }],     # Reference existing groups by name
+  smtp: { name: "Company SMTP" },           # Reference existing SMTP profile by name
+  url: "https://phishing.company.com"       # Base URL for campaign
+)
+
+if campaign.save
+  puts "Campaign created successfully!"
+  puts "  ID: #{campaign.id}"
+  puts "  Name: #{campaign.name}"
+  puts "  Status: #{campaign.status}"
+else
+  puts "Failed to create campaign:"
+  campaign.errors.full_messages.each { |msg| puts "  - #{msg}" }
+end
+```
+
+##### Create a Scheduled Campaign
+
+```ruby
+# Create a campaign with specific launch timing
+campaign = Gophish::Campaign.new(
+  name: "Scheduled Phishing Test",
+  template: { name: "Email Template" },
+  page: { name: "Landing Page" },
+  groups: [
+    { name: "HR Department" },
+    { name: "Finance Team" }
+  ],
+  smtp: { name: "SMTP Profile" },
+  url: "https://training.company.com",
+  launch_date: "2024-01-15T09:00:00Z",      # Start sending at 9 AM
+  send_by_date: "2024-01-15T17:00:00Z"      # Finish sending by 5 PM
+)
+
+if campaign.save
+  puts "Scheduled campaign created:"
+  puts "  Launch Date: #{campaign.launch_date}"
+  puts "  Send By Date: #{campaign.send_by_date}"
+  puts "  Launched? #{campaign.launched?}"
+  puts "  Has send by date? #{campaign.has_send_by_date?}"
+end
+```
+
+##### Monitor Campaign Progress
+
+```ruby
+# Load and monitor an existing campaign
+campaign = Gophish::Campaign.find(1)
+
+puts "Campaign: #{campaign.name}"
+puts "Status: #{campaign.status}"
+puts "In progress? #{campaign.in_progress?}"
+puts "Completed? #{campaign.completed?}"
+
+# Get detailed results
+results = campaign.get_results
+puts "\nCampaign Results Summary:"
+puts "  Total targets: #{results.length}"
+
+# Analyze results by status
+clicked_count = 0
+opened_count = 0
+reported_count = 0
+
+campaign.results.each do |result|
+  clicked_count += 1 if result.clicked?
+  opened_count += 1 if result.opened?
+  reported_count += 1 if result.reported?
+end
+
+puts "  Clicked links: #{clicked_count}"
+puts "  Opened emails: #{opened_count}"
+puts "  Reported phishing: #{reported_count}"
+puts "  Click rate: #{(clicked_count.to_f / results.length * 100).round(2)}%"
+```
+
+##### Analyze Campaign Timeline
+
+```ruby
+campaign = Gophish::Campaign.find(1)
+
+puts "Campaign Timeline:"
+campaign.timeline.each do |event|
+  puts "  #{event.time}: #{event.message}"
+  puts "    Email: #{event.email}" if event.email
+  
+  # Check for additional event details
+  if event.has_details?
+    details = event.parsed_details
+    puts "    Details: #{details.inspect}"
+  end
+  puts ""
+end
+```
+
+##### Complete a Running Campaign
+
+```ruby
+campaign = Gophish::Campaign.find(1)
+
+if campaign.in_progress?
+  puts "Completing campaign '#{campaign.name}'..."
+  
+  result = campaign.complete!
+  
+  if result['success']
+    puts "✓ Campaign completed successfully"
+    puts "  Final status: #{campaign.status}"
+    puts "  Completed date: #{campaign.completed_date}"
+  else
+    puts "✗ Failed to complete campaign: #{result['message']}"
+  end
+else
+  puts "Campaign is not in progress (current status: #{campaign.status})"
+end
+```
+
+##### Campaign with Object References
+
+```ruby
+# Create campaign using actual object instances instead of name references
+template = Gophish::Template.find(1)
+page = Gophish::Page.find(2)
+group = Gophish::Group.find(3)
+smtp = Gophish::Smtp.find(4)
+
+campaign = Gophish::Campaign.new(
+  name: "Advanced Campaign Setup",
+  template: template,    # Full template object
+  page: page,           # Full page object
+  groups: [group],      # Array of group objects
+  smtp: smtp,           # Full SMTP object
+  url: "https://secure.company.com/phishing"
+)
+
+# The campaign will automatically serialize these objects appropriately
+if campaign.save
+  puts "Campaign created using object references"
+  puts "Template: #{campaign.template.name}"
+  puts "Page: #{campaign.page.name}"
+  puts "Groups: #{campaign.groups.map(&:name).join(', ')}"
+  puts "SMTP: #{campaign.smtp.name}"
+end
+```
+
+##### Campaign Validation Examples
+
+```ruby
+# Invalid campaign - missing required components
+incomplete_campaign = Gophish::Campaign.new(name: "Incomplete Campaign")
+
+unless incomplete_campaign.valid?
+  puts "Validation errors:"
+  incomplete_campaign.errors.full_messages.each { |msg| puts "  - #{msg}" }
+  # Output:
+  # - Template can't be blank
+  # - Page can't be blank
+  # - Groups can't be blank
+  # - Smtp can't be blank
+  # - Url can't be blank
+end
+
+# Invalid group structure
+invalid_groups_campaign = Gophish::Campaign.new(
+  name: "Test Campaign",
+  template: { name: "Template" },
+  page: { name: "Page" },
+  groups: [{}],  # Invalid: group without name
+  smtp: { name: "SMTP" },
+  url: "https://test.com"
+)
+
+unless invalid_groups_campaign.valid?
+  puts "Group validation error:"
+  puts invalid_groups_campaign.errors.full_messages.first
+  # => "Groups item at index 0 must have a name"
+end
+
+# Valid campaign
+valid_campaign = Gophish::Campaign.new(
+  name: "Valid Campaign",
+  template: { name: "Test Template" },
+  page: { name: "Test Page" },
+  groups: [{ name: "Test Group" }],
+  smtp: { name: "Test SMTP" },
+  url: "https://valid.example.com"
+)
+
+puts "Campaign valid? #{valid_campaign.valid?}"  # => true
+```
+
+##### Bulk Campaign Operations
+
+```ruby
+# Create multiple campaigns programmatically
+templates = Gophish::Template.all
+groups = Gophish::Group.all
+page = Gophish::Page.find(1)
+smtp = Gophish::Smtp.find(1)
+
+campaigns_created = 0
+
+templates.each do |template|
+  campaign = Gophish::Campaign.new(
+    name: "Auto Campaign - #{template.name}",
+    template: template,
+    page: page,
+    groups: [groups.sample],  # Random group for testing
+    smtp: smtp,
+    url: "https://training.company.com",
+    launch_date: (Time.now + 1.hour).iso8601
+  )
+  
+  if campaign.save
+    campaigns_created += 1
+    puts "✓ Created campaign: #{campaign.name}"
+  else
+    puts "✗ Failed to create campaign for template #{template.name}:"
+    campaign.errors.full_messages.each { |msg| puts "    #{msg}" }
+  end
+end
+
+puts "\nCreated #{campaigns_created} campaigns successfully"
+```
+
+##### Campaign Reporting
+
+```ruby
+# Generate comprehensive campaign report
+def generate_campaign_report(campaign_id)
+  campaign = Gophish::Campaign.find(campaign_id)
+  
+  puts "="*60
+  puts "CAMPAIGN REPORT: #{campaign.name}"
+  puts "="*60
+  
+  puts "\nBasic Information:"
+  puts "  ID: #{campaign.id}"
+  puts "  Status: #{campaign.status}"
+  puts "  Created: #{campaign.created_date}"
+  puts "  Launched: #{campaign.launch_date || 'Not launched'}"
+  puts "  Completed: #{campaign.completed_date || 'Not completed'}"
+  
+  puts "\nCampaign Components:"
+  puts "  Template: #{campaign.template.name rescue 'Unknown'}"
+  puts "  Landing Page: #{campaign.page.name rescue 'Unknown'}"
+  puts "  SMTP Profile: #{campaign.smtp.name rescue 'Unknown'}"
+  puts "  Target Groups: #{campaign.groups.map(&:name).join(', ') rescue 'Unknown'}"
+  
+  puts "\nResults Summary:"
+  total_targets = campaign.results.length
+  puts "  Total Targets: #{total_targets}"
+  
+  if total_targets > 0
+    sent = campaign.results.count(&:sent?)
+    opened = campaign.results.count(&:opened?)
+    clicked = campaign.results.count(&:clicked?)
+    submitted = campaign.results.count(&:submitted_data?)
+    reported = campaign.results.count(&:reported?)
+    
+    puts "  Emails Sent: #{sent} (#{(sent.to_f/total_targets*100).round(1)}%)"
+    puts "  Emails Opened: #{opened} (#{(opened.to_f/total_targets*100).round(1)}%)"
+    puts "  Links Clicked: #{clicked} (#{(clicked.to_f/total_targets*100).round(1)}%)"
+    puts "  Data Submitted: #{submitted} (#{(submitted.to_f/total_targets*100).round(1)}%)"
+    puts "  Phishing Reported: #{reported} (#{(reported.to_f/total_targets*100).round(1)}%)"
+  end
+  
+  puts "\nTimeline Events: #{campaign.timeline.length}"
+  campaign.timeline.last(5).each do |event|
+    puts "  #{event.time}: #{event.message}"
+  end
+  
+  puts "\n" + "="*60
+end
+
+# Usage
+generate_campaign_report(1)
 ```
 
 ## Error Handling
