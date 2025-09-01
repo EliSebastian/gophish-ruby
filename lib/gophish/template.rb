@@ -6,20 +6,21 @@ module Gophish
   class Template < Base
     attribute :id, :integer
     attribute :name, :string
+    attribute :envelope_sender, :string
     attribute :subject, :string
     attribute :text, :string
     attribute :html, :string
     attribute :modified_date, :string
     attribute :attachments, default: -> { [] }
 
-    define_attribute_methods :id, :name, :subject, :text, :html, :modified_date, :attachments
+    define_attribute_methods :id, :name, :envelope_sender, :subject, :text, :html, :modified_date, :attachments
 
     validates :name, presence: true
     validate :validate_content_presence
     validate :validate_attachments_structure
 
     def body_for_create
-      { name:, subject:, text:, html:, attachments: }
+      { name:, envelope_sender:, subject:, text:, html:, attachments: }
     end
 
     def self.import_email(content, convert_links: false)
@@ -55,6 +56,10 @@ module Gophish
 
     def attachment_count
       attachments.length
+    end
+
+    def has_envelope_sender?
+      !envelope_sender.blank?
     end
 
     private
