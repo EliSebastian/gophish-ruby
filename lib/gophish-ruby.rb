@@ -1,7 +1,7 @@
 require_relative 'gophish/version'
 require_relative 'gophish/configuration'
-require_relative 'gophish/base'
 require_relative 'gophish/group'
+require_relative 'gophish/template'
 
 module Gophish
   class << self
