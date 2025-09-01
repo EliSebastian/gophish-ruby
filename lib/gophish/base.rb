@@ -13,12 +13,13 @@ module Gophish
     include ActiveModel::Model
     include ActiveModel::Attributes
     include ActiveModel::Validations
+    include ActiveModel::Dirty
     include ActiveRecord::Callbacks
 
     def initialize(attributes = {})
       @persisted = false
-      @changed_attributes = {}
       super(attributes)
+      clear_changes_information
     end
 
     def self.configuration
@@ -125,7 +126,7 @@ module Gophish
         send "#{key}=", value if respond_to? "#{key}="
       end
       @persisted = true
-      @changed_attributes.clear
+      clear_changes_information
     end
 
     def handle_error_response(response)
@@ -145,9 +146,9 @@ module Gophish
 
     def update_record
       return false if id.nil?
-      return true if @changed_attributes.empty?
+      return true unless changed?
 
-      response = self.class.put "#{self.class.resource_path}/#{id}/", request_options(body_for_update)
+      response = self.class.put "#{self.class.resource_path}/#{id}", request_options(body_for_update)
       return handle_error_response response unless response.success?
 
       update_attributes_from_response response.parsed_response
@@ -177,29 +178,10 @@ module Gophish
     end
 
     def body_for_update
-      body_for_create
-    end
-
-    def attribute_changed?(attribute)
-      @changed_attributes.key? attribute.to_s
-    end
-
-    def changed_attributes
-      @changed_attributes.keys
-    end
-
-    def attribute_was(attribute)
-      @changed_attributes[attribute.to_s]
+      body_for_create.merge id:
     end
 
     def []=(attribute, value)
-      attribute_str = attribute.to_s
-      current_value = send attribute if respond_to? attribute
-
-      unless current_value == value
-        @changed_attributes[attribute_str] = current_value
-      end
-
       send "#{attribute}=", value if respond_to? "#{attribute}="
     end
   end
