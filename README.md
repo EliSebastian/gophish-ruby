@@ -15,6 +15,7 @@ A Ruby SDK for the [Gophish](https://getgophish.com/) phishing simulation platfo
 - **Email Import**: Import existing emails and convert them to templates
 - **Site Import**: Import landing pages directly from existing websites
 - **Page Management**: Create, modify, and manage landing pages with credential capture
+- **SMTP Configuration**: Create, modify, and manage SMTP sending profiles with authentication and header support
 - **SSL Configuration**: Configurable SSL verification for development environments
 - **Debug Support**: Built-in debugging capabilities for API interactions
 - **Change Tracking**: Automatic tracking of attribute changes with ActiveModel::Dirty
@@ -471,6 +472,144 @@ if page.captures_credentials?
 end
 ```
 
+### SMTP Management
+
+SMTP sending profiles define the mail server configuration for sending phishing emails in your campaigns.
+
+#### Creating an SMTP Profile
+
+```ruby
+# Create a basic SMTP profile
+smtp = Gophish::Smtp.new(
+  name: "Company Mail Server",
+  host: "smtp.company.com",
+  from_address: "security@company.com"
+)
+
+# Save the SMTP profile to Gophish
+if smtp.save
+  puts "SMTP profile created successfully with ID: #{smtp.id}"
+else
+  puts "Failed to create SMTP profile: #{smtp.errors.full_messages}"
+end
+```
+
+#### Creating an SMTP Profile with Authentication
+
+```ruby
+# Create an SMTP profile with username/password authentication
+smtp = Gophish::Smtp.new(
+  name: "Gmail SMTP",
+  host: "smtp.gmail.com",
+  from_address: "phishing@company.com",
+  username: "smtp_username",
+  password: "smtp_password",
+  ignore_cert_errors: false
+)
+
+if smtp.save
+  puts "SMTP profile created with authentication"
+  puts "Has authentication: #{smtp.has_authentication?}"
+  puts "Ignores cert errors: #{smtp.ignores_cert_errors?}"
+end
+```
+
+#### Managing Custom Headers
+
+```ruby
+# Add custom headers to the SMTP profile
+smtp = Gophish::Smtp.new(
+  name: "Custom Headers SMTP",
+  host: "mail.company.com",
+  from_address: "security@company.com"
+)
+
+# Add headers for email routing and identification
+smtp.add_header("X-Mailer", "Company Security Tool")
+smtp.add_header("X-Campaign-Type", "Phishing Simulation")
+smtp.add_header("Return-Path", "bounces@company.com")
+
+puts "Header count: #{smtp.header_count}"
+puts "Has headers: #{smtp.has_headers?}"
+
+# Remove a specific header
+smtp.remove_header("X-Campaign-Type")
+puts "Headers after removal: #{smtp.header_count}"
+```
+
+#### Retrieving SMTP Profiles
+
+```ruby
+# Get all SMTP profiles
+smtp_profiles = Gophish::Smtp.all
+puts "Found #{smtp_profiles.length} SMTP profiles"
+
+# Find a specific SMTP profile by ID
+smtp = Gophish::Smtp.find(1)
+puts "SMTP Profile: #{smtp.name} (#{smtp.host})"
+```
+
+#### Updating an SMTP Profile
+
+```ruby
+# Update SMTP profile settings
+smtp = Gophish::Smtp.find(1)
+smtp.name = "Updated SMTP Server"
+smtp.ignore_cert_errors = true
+
+# Add new headers
+smtp.add_header("X-Priority", "1")
+
+if smtp.save
+  puts "SMTP profile updated successfully"
+end
+```
+
+#### Deleting an SMTP Profile
+
+```ruby
+smtp = Gophish::Smtp.find(1)
+if smtp.destroy
+  puts "SMTP profile deleted successfully"
+end
+```
+
+### SMTP Validation and Error Handling
+
+The SDK provides comprehensive validation for SMTP profiles:
+
+```ruby
+# Invalid SMTP profile (missing required fields)
+smtp = Gophish::Smtp.new(name: "", host: "", from_address: "")
+
+unless smtp.valid?
+  puts "Validation errors:"
+  smtp.errors.full_messages.each { |msg| puts "  - #{msg}" }
+  # => ["Name can't be blank", "Host can't be blank", "From address can't be blank"]
+end
+
+# Invalid email format
+smtp = Gophish::Smtp.new(
+  name: "Test SMTP",
+  host: "smtp.test.com",
+  from_address: "invalid-email-format"
+)
+
+unless smtp.valid?
+  puts smtp.errors.full_messages
+  # => ["From address must be a valid email format (email@domain.com)"]
+end
+
+# Check SMTP configuration
+if smtp.has_authentication?
+  puts "SMTP uses authentication"
+end
+
+if smtp.ignores_cert_errors?
+  puts "SMTP ignores certificate errors (not recommended for production)"
+end
+```
+
 ## API Documentation
 
 ### Core Classes
@@ -597,6 +736,45 @@ Represents a Gophish landing page for phishing campaigns.
 
 - Page must have a name
 - Page must have HTML content
+
+#### `Gophish::Smtp`
+
+Represents a Gophish SMTP sending profile for email campaigns.
+
+**Attributes:**
+
+- `id` (Integer) - Unique SMTP profile identifier
+- `name` (String) - SMTP profile name (required)
+- `username` (String) - SMTP authentication username
+- `password` (String) - SMTP authentication password
+- `host` (String) - SMTP server hostname (required)
+- `interface_type` (String) - Interface type (default: "SMTP")
+- `from_address` (String) - From email address (required, must be valid email format)
+- `ignore_cert_errors` (Boolean) - Whether to ignore SSL certificate errors (default: false)
+- `modified_date` (String) - Last modification timestamp
+- `headers` (Array) - Array of custom header hashes
+
+**Header Structure:**
+Each header in the `headers` array should have:
+
+- `key` (String) - Header name (required)
+- `value` (String) - Header value (required)
+
+**Instance Methods:**
+
+- `#add_header(key, value)` - Add a custom header to the SMTP profile
+- `#remove_header(key)` - Remove a header by key name
+- `#has_headers?` - Check if SMTP profile has any custom headers
+- `#header_count` - Get the number of custom headers
+- `#has_authentication?` - Check if SMTP profile uses authentication (username/password)
+- `#ignores_cert_errors?` - Check if SMTP profile ignores SSL certificate errors
+
+**Validations:**
+
+- SMTP profile must have a name
+- SMTP profile must have a host
+- SMTP profile must have a from_address in valid email format
+- All headers must have both key and value
 
 ## Development
 
