@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-01-15
+
+### Added
+
+- **SMTP Management System**
+  - `Gophish::Smtp` class for managing SMTP sending profiles in phishing campaigns
+  - Full CRUD operations for SMTP profiles (create, read, update, delete)
+  - Support for SMTP server configuration with host, from_address, and authentication
+  - Comprehensive validations requiring name, host, and valid from_address email format
+  - Authentication support with username and password credentials
+  - SSL certificate error handling with `ignore_cert_errors` option
+  - Custom header management with add/remove functionality
+  - Built-in methods for checking SMTP configuration: `#has_authentication?`, `#ignores_cert_errors?`, `#has_headers?`, `#header_count`
+
+### Changed
+
+- Updated gem version to 0.4.0
+- Added `require_relative 'gophish/smtp'` to main library file for SMTP class availability
+
 ## [0.3.0] - 2025-01-15
 
 ### Added
