@@ -8,6 +8,7 @@ This document contains practical examples for common use cases with the Gophish 
 - [CSV Operations](#csv-operations)
 - [Template Operations](#template-operations)
 - [Page Operations](#page-operations)
+- [SMTP Operations](#smtp-operations)
 - [Error Handling](#error-handling)
 - [Advanced Scenarios](#advanced-scenarios)
 - [Production Examples](#production-examples)
@@ -1234,6 +1235,713 @@ variants = [
 
 pages = create_page_variants("Microsoft Security Alert", base_html, variants)
 puts "\nCreated #{pages.length} page variants for A/B testing"
+```
+
+## SMTP Operations
+
+### Basic SMTP Profile Creation
+
+```ruby
+# Simple SMTP profile without authentication
+basic_smtp = Gophish::Smtp.new(
+  name: "Company Mail Server",
+  host: "smtp.company.com",
+  from_address: "security@company.com"
+)
+
+if basic_smtp.save
+  puts "✓ Basic SMTP profile created: #{basic_smtp.id}"
+  puts "  Host: #{basic_smtp.host}"
+  puts "  From: #{basic_smtp.from_address}"
+else
+  puts "✗ Failed to create SMTP profile: #{basic_smtp.errors.full_messages}"
+end
+```
+
+### SMTP Profile with Authentication
+
+```ruby
+# SMTP with username/password authentication
+auth_smtp = Gophish::Smtp.new(
+  name: "Gmail SMTP with Authentication",
+  host: "smtp.gmail.com",
+  from_address: "phishing.test@company.com",
+  username: "smtp_service@company.com",
+  password: "app_specific_password",
+  ignore_cert_errors: false
+)
+
+puts "SMTP Configuration:"
+puts "  Name: #{auth_smtp.name}"
+puts "  Host: #{auth_smtp.host}"
+puts "  From: #{auth_smtp.from_address}"
+puts "  Uses Authentication: #{auth_smtp.has_authentication?}"
+puts "  Ignores SSL Errors: #{auth_smtp.ignores_cert_errors?}"
+
+if auth_smtp.save
+  puts "✓ Authenticated SMTP profile created: #{auth_smtp.id}"
+end
+```
+
+### SMTP Profile with Custom Headers
+
+```ruby
+# SMTP profile with multiple custom headers
+header_smtp = Gophish::Smtp.new(
+  name: "Custom Headers Mail Server",
+  host: "mail.company.com", 
+  from_address: "security-team@company.com"
+)
+
+# Add headers for better deliverability and tracking
+header_smtp.add_header("X-Mailer", "Gophish Security Training Platform v2.0")
+header_smtp.add_header("X-Department", "Information Security")
+header_smtp.add_header("X-Campaign-ID", "Q4-2024-PHISH-001")
+header_smtp.add_header("Return-Path", "bounces+security@company.com")
+header_smtp.add_header("Reply-To", "security-team@company.com")
+header_smtp.add_header("X-Priority", "1")
+header_smtp.add_header("X-MSMail-Priority", "High")
+
+puts "SMTP Profile with Headers:"
+puts "  Name: #{header_smtp.name}"
+puts "  Headers: #{header_smtp.header_count}"
+puts "  Has Headers: #{header_smtp.has_headers?}"
+
+header_smtp.headers.each_with_index do |header, index|
+  key = header[:key] || header['key']
+  value = header[:value] || header['value']
+  puts "    #{index + 1}. #{key}: #{value}"
+end
+
+if header_smtp.save
+  puts "✓ SMTP profile with headers created: #{header_smtp.id}"
+end
+```
+
+### Production-Ready SMTP Configuration
+
+```ruby
+# Comprehensive SMTP setup for production use
+def create_production_smtp(name, host, from_address, username = nil, password = nil)
+  puts "Creating production SMTP profile: #{name}"
+  
+  smtp = Gophish::Smtp.new(
+    name: name,
+    host: host,
+    from_address: from_address,
+    username: username,
+    password: password,
+    ignore_cert_errors: false,  # Always verify SSL in production
+    interface_type: "SMTP"
+  )
+
+  # Add production-grade headers
+  smtp.add_header("X-Mailer", "Corporate Security Training System")
+  smtp.add_header("X-Environment", "Production")
+  smtp.add_header("X-Security-Classification", "Internal")
+  smtp.add_header("Return-Path", "bounces+security@#{extract_domain(from_address)}")
+  smtp.add_header("List-Unsubscribe", "<mailto:security-opt-out@#{extract_domain(from_address)}>")
+  
+  # Validate configuration
+  unless smtp.valid?
+    puts "  ✗ Configuration invalid:"
+    smtp.errors.full_messages.each { |error| puts "      - #{error}" }
+    return nil
+  end
+
+  # Security checks
+  puts "  Security Assessment:"
+  puts "    SSL Verification: #{smtp.ignore_cert_errors? ? '✗ DISABLED' : '✓ ENABLED'}"
+  puts "    Authentication: #{smtp.has_authentication? ? '✓ ENABLED' : '⚠ DISABLED'}"
+  puts "    Custom Headers: #{smtp.header_count}"
+  puts "    From Domain: #{extract_domain(smtp.from_address)}"
+
+  if smtp.save
+    puts "  ✓ Production SMTP profile created (ID: #{smtp.id})"
+    return smtp
+  else
+    puts "  ✗ Failed to save SMTP profile:"
+    smtp.errors.full_messages.each { |error| puts "      - #{error}" }
+    return nil
+  end
+end
+
+def extract_domain(email)
+  email.split('@').last
+end
+
+# Usage examples
+prod_smtp = create_production_smtp(
+  "Production Mail Server",
+  "smtp.company.com", 
+  "security-training@company.com",
+  "smtp_service_account",
+  ENV['SMTP_PASSWORD']  # Use environment variables for passwords
+)
+
+gmail_smtp = create_production_smtp(
+  "Gmail SMTP for Testing",
+  "smtp.gmail.com",
+  "test-campaigns@company.com", 
+  "test-account@company.com",
+  ENV['GMAIL_APP_PASSWORD']
+)
+```
+
+### SMTP Profile Management Operations
+
+```ruby
+# List all SMTP profiles with details
+def list_smtp_profiles
+  smtp_profiles = Gophish::Smtp.all
+  puts "Found #{smtp_profiles.length} SMTP profiles:"
+  
+  smtp_profiles.each do |smtp|
+    features = []
+    features << "🔐 Auth" if smtp.has_authentication?
+    features << "📧 Headers(#{smtp.header_count})" if smtp.has_headers?
+    features << "⚠️ No SSL" if smtp.ignores_cert_errors?
+    
+    feature_text = features.any? ? " [#{features.join(', ')}]" : ""
+    
+    puts "  #{smtp.id}: #{smtp.name}#{feature_text}"
+    puts "    Host: #{smtp.host}"
+    puts "    From: #{smtp.from_address}"
+    puts "    Interface: #{smtp.interface_type}"
+    puts "    Modified: #{smtp.modified_date}" if smtp.modified_date
+    puts
+  end
+end
+
+# Update existing SMTP profile
+def update_smtp_profile(smtp_id, updates = {})
+  begin
+    smtp = Gophish::Smtp.find(smtp_id)
+  rescue StandardError
+    puts "✗ SMTP profile #{smtp_id} not found"
+    return false
+  end
+
+  puts "Updating SMTP profile '#{smtp.name}'"
+  original_values = {}
+
+  # Apply updates and track changes
+  updates.each do |field, value|
+    if smtp.respond_to?("#{field}=")
+      original_values[field] = smtp.send(field)
+      smtp.send("#{field}=", value)
+      puts "  #{field}: '#{original_values[field]}' → '#{value}'"
+    else
+      puts "  ⚠️ Unknown field: #{field}"
+    end
+  end
+
+  if smtp.save
+    puts "  ✓ SMTP profile updated successfully"
+    true
+  else
+    puts "  ✗ Update failed:"
+    smtp.errors.full_messages.each { |error| puts "      - #{error}" }
+    false
+  end
+end
+
+# Clone SMTP profile with modifications
+def clone_smtp_profile(original_id, new_name, modifications = {})
+  begin
+    original = Gophish::Smtp.find(original_id)
+  rescue StandardError
+    puts "✗ Original SMTP profile #{original_id} not found"
+    return nil
+  end
+
+  puts "Cloning SMTP profile '#{original.name}' as '#{new_name}'"
+
+  # Create clone with same settings
+  cloned_smtp = Gophish::Smtp.new(
+    name: new_name,
+    host: original.host,
+    from_address: original.from_address,
+    username: original.username,
+    password: original.password,
+    interface_type: original.interface_type,
+    ignore_cert_errors: original.ignore_cert_errors
+  )
+
+  # Copy headers
+  if original.has_headers?
+    original.headers.each do |header|
+      key = header[:key] || header['key']
+      value = header[:value] || header['value']
+      cloned_smtp.add_header(key, value)
+    end
+  end
+
+  # Apply modifications
+  modifications.each do |field, value|
+    case field
+    when :headers
+      # Clear existing headers and add new ones
+      cloned_smtp.headers.clear
+      value.each { |key, val| cloned_smtp.add_header(key, val) }
+    else
+      cloned_smtp.send("#{field}=", value) if cloned_smtp.respond_to?("#{field}=")
+    end
+  end
+
+  if cloned_smtp.save
+    puts "  ✓ SMTP profile cloned successfully (ID: #{cloned_smtp.id})"
+    puts "  Features:"
+    puts "    Authentication: #{cloned_smtp.has_authentication?}"
+    puts "    Headers: #{cloned_smtp.header_count}"
+    puts "    SSL Verification: #{cloned_smtp.ignore_cert_errors? ? 'Disabled' : 'Enabled'}"
+    return cloned_smtp
+  else
+    puts "  ✗ Clone failed:"
+    cloned_smtp.errors.full_messages.each { |error| puts "      - #{error}" }
+    return nil
+  end
+end
+
+# Usage examples
+list_smtp_profiles
+
+# Update an existing profile
+update_smtp_profile(1, {
+  name: "Updated Company SMTP",
+  ignore_cert_errors: true
+})
+
+# Clone with modifications
+cloned = clone_smtp_profile(1, "Test Environment SMTP", {
+  from_address: "test@company.com",
+  ignore_cert_errors: true,
+  headers: {
+    "X-Environment" => "Testing",
+    "X-Test-Campaign" => "true"
+  }
+})
+```
+
+### Header Management Examples
+
+```ruby
+# Advanced header management
+def manage_smtp_headers(smtp_id)
+  begin
+    smtp = Gophish::Smtp.find(smtp_id)
+  rescue StandardError
+    puts "✗ SMTP profile #{smtp_id} not found"
+    return
+  end
+
+  puts "Managing headers for '#{smtp.name}'"
+  puts "Current headers: #{smtp.header_count}"
+
+  # Display current headers
+  if smtp.has_headers?
+    puts "  Current headers:"
+    smtp.headers.each_with_index do |header, index|
+      key = header[:key] || header['key']
+      value = header[:value] || header['value']
+      puts "    #{index + 1}. #{key}: #{value}"
+    end
+  end
+
+  # Add standard deliverability headers
+  standard_headers = {
+    "X-Mailer" => "Gophish Security Training v4.0",
+    "X-Campaign-Type" => "Security Awareness", 
+    "X-Department" => "IT Security",
+    "Return-Path" => "bounces@#{smtp.from_address.split('@').last}",
+    "List-Unsubscribe" => "<mailto:unsubscribe@#{smtp.from_address.split('@').last}>",
+    "X-Priority" => "Normal",
+    "X-Auto-Response-Suppress" => "All"
+  }
+
+  puts "\nAdding standard headers:"
+  standard_headers.each do |key, value|
+    smtp.add_header(key, value)
+    puts "  + #{key}: #{value}"
+  end
+
+  # Remove any problematic headers
+  problematic_headers = ["X-Spam", "X-Test", "X-Debug"]
+  removed_count = 0
+
+  problematic_headers.each do |header_key|
+    if smtp.headers.any? { |h| (h[:key] || h['key']) == header_key }
+      smtp.remove_header(header_key)
+      removed_count += 1
+      puts "  - Removed: #{header_key}"
+    end
+  end
+
+  puts "\nHeader management summary:"
+  puts "  Total headers: #{smtp.header_count}"
+  puts "  Added: #{standard_headers.length}"
+  puts "  Removed: #{removed_count}"
+
+  if smtp.save
+    puts "  ✓ Headers updated successfully"
+  else
+    puts "  ✗ Failed to save header changes"
+  end
+end
+
+# Bulk header operations
+def standardize_all_smtp_headers
+  smtp_profiles = Gophish::Smtp.all
+  puts "Standardizing headers for #{smtp_profiles.length} SMTP profiles"
+
+  standard_headers = {
+    "X-Mailer" => "Corporate Security Training Platform",
+    "X-Campaign-Source" => "Internal Security Team",
+    "Return-Path" => nil,  # Will be set per profile
+    "List-Unsubscribe" => nil  # Will be set per profile
+  }
+
+  smtp_profiles.each_with_index do |smtp, index|
+    puts "[#{index + 1}/#{smtp_profiles.length}] Processing '#{smtp.name}'"
+    
+    # Set dynamic headers based on from_address
+    domain = smtp.from_address.split('@').last
+    standard_headers["Return-Path"] = "bounces@#{domain}"
+    standard_headers["List-Unsubscribe"] = "<mailto:unsubscribe@#{domain}>"
+
+    # Add missing standard headers
+    added_count = 0
+    standard_headers.each do |key, value|
+      unless smtp.headers.any? { |h| (h[:key] || h['key']) == key }
+        smtp.add_header(key, value)
+        added_count += 1
+      end
+    end
+
+    if added_count > 0
+      if smtp.save
+        puts "  ✓ Added #{added_count} standard headers"
+      else
+        puts "  ✗ Failed to save headers"
+      end
+    else
+      puts "  - Already has standard headers"
+    end
+  end
+end
+
+# Usage
+manage_smtp_headers(1)
+standardize_all_smtp_headers
+```
+
+### SMTP Configuration Templates
+
+```ruby
+# Pre-configured SMTP templates for common providers
+class SMTPTemplates
+  TEMPLATES = {
+    gmail: {
+      host: "smtp.gmail.com",
+      port: 587,
+      interface_type: "SMTP",
+      ignore_cert_errors: false,
+      headers: {
+        "X-Mailer" => "Gmail SMTP Integration",
+        "X-Provider" => "Gmail"
+      }
+    },
+    
+    office365: {
+      host: "smtp.office365.com", 
+      port: 587,
+      interface_type: "SMTP",
+      ignore_cert_errors: false,
+      headers: {
+        "X-Mailer" => "Office 365 SMTP Integration",
+        "X-Provider" => "Microsoft Office 365"
+      }
+    },
+    
+    sendgrid: {
+      host: "smtp.sendgrid.net",
+      port: 587,
+      interface_type: "SMTP",
+      ignore_cert_errors: false,
+      headers: {
+        "X-Mailer" => "SendGrid SMTP Integration",
+        "X-Provider" => "SendGrid"
+      }
+    },
+
+    mailgun: {
+      host: "smtp.mailgun.org",
+      port: 587, 
+      interface_type: "SMTP",
+      ignore_cert_errors: false,
+      headers: {
+        "X-Mailer" => "Mailgun SMTP Integration",
+        "X-Provider" => "Mailgun"
+      }
+    },
+    
+    ses: {
+      host: "email-smtp.us-east-1.amazonaws.com",
+      port: 587,
+      interface_type: "SMTP", 
+      ignore_cert_errors: false,
+      headers: {
+        "X-Mailer" => "Amazon SES SMTP Integration",
+        "X-Provider" => "Amazon SES"
+      }
+    }
+  }.freeze
+
+  def self.create_from_template(template_name, name, from_address, username, password)
+    template = TEMPLATES[template_name.to_sym]
+    unless template
+      puts "✗ Unknown template: #{template_name}"
+      puts "Available templates: #{TEMPLATES.keys.join(', ')}"
+      return nil
+    end
+
+    puts "Creating SMTP profile from #{template_name} template"
+    
+    smtp = Gophish::Smtp.new(
+      name: name,
+      host: template[:host],
+      from_address: from_address,
+      username: username,
+      password: password,
+      interface_type: template[:interface_type],
+      ignore_cert_errors: template[:ignore_cert_errors]
+    )
+
+    # Add template headers
+    template[:headers].each do |key, value|
+      smtp.add_header(key, value)
+    end
+
+    # Add common headers
+    smtp.add_header("Return-Path", "bounces@#{from_address.split('@').last}")
+    smtp.add_header("List-Unsubscribe", "<mailto:unsubscribe@#{from_address.split('@').last}>")
+
+    puts "Template configuration:"
+    puts "  Host: #{smtp.host}"
+    puts "  From: #{smtp.from_address}"
+    puts "  Headers: #{smtp.header_count}"
+    puts "  SSL Verification: #{smtp.ignore_cert_errors? ? 'Disabled' : 'Enabled'}"
+
+    if smtp.valid?
+      if smtp.save
+        puts "  ✓ SMTP profile created successfully (ID: #{smtp.id})"
+        return smtp
+      else
+        puts "  ✗ Save failed: #{smtp.errors.full_messages.join(', ')}"
+      end
+    else
+      puts "  ✗ Validation failed: #{smtp.errors.full_messages.join(', ')}"
+    end
+
+    nil
+  end
+
+  def self.list_templates
+    puts "Available SMTP templates:"
+    TEMPLATES.each do |name, config|
+      puts "  #{name}:"
+      puts "    Host: #{config[:host]}"
+      puts "    Provider: #{config[:headers]['X-Provider']}"
+      puts "    SSL: #{config[:ignore_cert_errors] ? 'Optional' : 'Required'}"
+    end
+  end
+end
+
+# Usage examples
+SMTPTemplates.list_templates
+
+# Create Gmail SMTP
+gmail = SMTPTemplates.create_from_template(
+  :gmail,
+  "Corporate Gmail SMTP",
+  "security@company.com",
+  "security@company.com", 
+  ENV['GMAIL_APP_PASSWORD']
+)
+
+# Create Office 365 SMTP
+office365 = SMTPTemplates.create_from_template(
+  :office365,
+  "Office 365 Mail Server",
+  "training@company.com",
+  "smtp_service@company.onmicrosoft.com",
+  ENV['O365_PASSWORD']
+)
+
+# Create SendGrid SMTP
+sendgrid = SMTPTemplates.create_from_template(
+  :sendgrid,
+  "SendGrid Transactional Mail",
+  "no-reply@company.com",
+  "apikey",
+  ENV['SENDGRID_API_KEY']
+)
+```
+
+### SMTP Testing and Validation
+
+```ruby
+# Comprehensive SMTP testing
+class SMTPTester
+  def self.validate_smtp_profile(smtp_id)
+    begin
+      smtp = Gophish::Smtp.find(smtp_id)
+    rescue StandardError
+      puts "✗ SMTP profile #{smtp_id} not found"
+      return false
+    end
+
+    puts "Validating SMTP profile: #{smtp.name}"
+    puts "=" * 50
+
+    # Basic validation
+    unless smtp.valid?
+      puts "✗ Basic validation failed:"
+      smtp.errors.full_messages.each { |error| puts "  - #{error}" }
+      return false
+    end
+    puts "✓ Basic validation passed"
+
+    # Configuration check
+    puts "\nConfiguration Details:"
+    puts "  Name: #{smtp.name}"
+    puts "  Host: #{smtp.host}"
+    puts "  From Address: #{smtp.from_address}"
+    puts "  Interface Type: #{smtp.interface_type}"
+    puts "  Username: #{smtp.username || 'Not configured'}"
+    puts "  Password: #{smtp.password ? '[SET]' : '[NOT SET]'}"
+    puts "  SSL Verification: #{smtp.ignore_cert_errors? ? 'Disabled' : 'Enabled'}"
+
+    # Authentication check
+    if smtp.has_authentication?
+      puts "✓ Authentication configured"
+    else
+      puts "⚠ No authentication configured - ensure your SMTP server allows it"
+    end
+
+    # SSL/Security check
+    if smtp.ignore_cert_errors?
+      puts "⚠ SSL certificate verification disabled"
+      puts "  This may be acceptable for development but not for production"
+    else
+      puts "✓ SSL certificate verification enabled"
+    end
+
+    # Header analysis
+    puts "\nHeader Analysis:"
+    if smtp.has_headers?
+      puts "  Custom headers: #{smtp.header_count}"
+      
+      required_headers = ['Return-Path', 'List-Unsubscribe']
+      recommended_headers = ['X-Mailer', 'X-Campaign-Type', 'Reply-To']
+      
+      required_headers.each do |header|
+        has_header = smtp.headers.any? { |h| (h[:key] || h['key']) == header }
+        puts "  #{has_header ? '✓' : '✗'} #{header}: #{has_header ? 'Present' : 'Missing'}"
+      end
+
+      recommended_headers.each do |header|
+        has_header = smtp.headers.any? { |h| (h[:key] || h['key']) == header }
+        puts "  #{has_header ? '✓' : '⚠'} #{header}: #{has_header ? 'Present' : 'Recommended'}"
+      end
+      
+      # List all headers
+      puts "\n  All headers:"
+      smtp.headers.each_with_index do |header, index|
+        key = header[:key] || header['key']
+        value = header[:value] || header['value']
+        puts "    #{index + 1}. #{key}: #{value}"
+      end
+    else
+      puts "  ⚠ No custom headers configured"
+      puts "  Consider adding headers for better deliverability"
+    end
+
+    # Domain analysis
+    domain = smtp.from_address.split('@').last
+    puts "\nDomain Analysis:"
+    puts "  From domain: #{domain}"
+    puts "  SMTP host: #{smtp.host}"
+    
+    # Check if domain matches SMTP host
+    if smtp.host.include?(domain) || domain.include?(smtp.host.split('.').last(2).join('.'))
+      puts "✓ Domain and SMTP host appear to match"
+    else
+      puts "⚠ Domain and SMTP host don't obviously match"
+      puts "  Ensure your SMTP provider is authorized to send for #{domain}"
+    end
+
+    puts "\n" + "=" * 50
+    puts "✓ SMTP profile validation completed"
+    true
+  end
+
+  def self.security_audit_all_smtp
+    smtp_profiles = Gophish::Smtp.all
+    puts "Security Audit: #{smtp_profiles.length} SMTP Profiles"
+    puts "=" * 60
+
+    issues = []
+
+    smtp_profiles.each_with_index do |smtp, index|
+      puts "\n[#{index + 1}/#{smtp_profiles.length}] #{smtp.name}"
+      
+      # Check for insecure settings
+      if smtp.ignore_cert_errors?
+        issues << "#{smtp.name}: SSL verification disabled"
+        puts "  ⚠️ SSL certificate verification disabled"
+      end
+
+      unless smtp.has_authentication?
+        issues << "#{smtp.name}: No authentication configured"
+        puts "  ⚠️ No authentication configured"
+      end
+
+      # Check for test/debug indicators
+      test_indicators = ['test', 'debug', 'dev', 'staging']
+      if test_indicators.any? { |indicator| smtp.name.downcase.include?(indicator) }
+        puts "  ℹ️ Appears to be a test/development profile"
+      end
+
+      # Check headers for security info
+      if smtp.has_headers?
+        smtp.headers.each do |header|
+          key = header[:key] || header['key']
+          value = header[:value] || header['value']
+          
+          if key.downcase.include?('test') || value.downcase.include?('test')
+            puts "  ℹ️ Contains test-related headers"
+          end
+        end
+      end
+
+      puts "  ✓ Basic security check completed"
+    end
+
+    puts "\n" + "=" * 60
+    puts "Security Audit Summary:"
+    if issues.any?
+      puts "Issues found:"
+      issues.each { |issue| puts "  - #{issue}" }
+    else
+      puts "✓ No security issues detected"
+    end
+  end
+end
+
+# Usage
+SMTPTester.validate_smtp_profile(1)
+SMTPTester.security_audit_all_smtp
 ```
 
 ## Error Handling

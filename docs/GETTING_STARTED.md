@@ -105,7 +105,27 @@ else
 end
 ```
 
-### 5. Create Your First Landing Page
+### 5. Create Your First SMTP Profile
+
+SMTP profiles define how emails are sent in your campaigns:
+
+```ruby
+# Create a basic SMTP profile
+smtp = Gophish::Smtp.new(
+  name: "Company Mail Server",
+  host: "smtp.company.com",
+  from_address: "security@company.com"
+)
+
+if smtp.save
+  puts "✓ SMTP profile created successfully with ID: #{smtp.id}"
+else
+  puts "✗ Failed to create SMTP profile:"
+  smtp.errors.full_messages.each { |error| puts "  - #{error}" }
+end
+```
+
+### 6. Create Your First Landing Page
 
 Landing pages are what users see when they click phishing links:
 
@@ -147,6 +167,72 @@ if page.save
 else
   puts "✗ Failed to create page:"
   page.errors.full_messages.each { |error| puts "  - #{error}" }
+end
+```
+
+### Working with SMTP Profiles
+
+#### Creating SMTP Profiles with Authentication
+
+```ruby
+# SMTP profile with username/password authentication
+smtp_auth = Gophish::Smtp.new(
+  name: "Gmail SMTP",
+  host: "smtp.gmail.com",
+  from_address: "phishing@company.com",
+  username: "smtp_user@company.com",
+  password: "app_specific_password",
+  ignore_cert_errors: false
+)
+
+puts "Uses authentication: #{smtp_auth.has_authentication?}"
+smtp_auth.save
+```
+
+#### Adding Custom Headers to SMTP Profiles
+
+```ruby
+# SMTP profile with custom headers for better deliverability
+smtp = Gophish::Smtp.new(
+  name: "Custom Headers SMTP",
+  host: "mail.company.com",
+  from_address: "security@company.com"
+)
+
+# Add headers for email routing and identification
+smtp.add_header("X-Mailer", "Company Security Training")
+smtp.add_header("X-Campaign-Type", "Phishing Simulation")
+smtp.add_header("Return-Path", "bounces@company.com")
+
+puts "Header count: #{smtp.header_count}"
+smtp.save
+```
+
+#### Managing Existing SMTP Profiles
+
+```ruby
+# List all SMTP profiles
+puts "Existing SMTP profiles:"
+Gophish::Smtp.all.each do |smtp|
+  auth_info = smtp.has_authentication? ? " [Auth]" : ""
+  header_info = smtp.has_headers? ? " (#{smtp.header_count} headers)" : ""
+  puts "  #{smtp.id}: #{smtp.name} (#{smtp.host})#{auth_info}#{header_info}"
+end
+
+# Update an SMTP profile
+smtp = Gophish::Smtp.find(1)
+smtp.name = "Updated Mail Server"
+smtp.ignore_cert_errors = true  # For testing environments
+
+# Add new header
+smtp.add_header("X-Priority", "High")
+
+# Remove old header
+smtp.remove_header("X-Campaign-Type")
+
+if smtp.save
+  puts "✓ SMTP profile updated"
+  puts "  Headers: #{smtp.header_count}"
 end
 ```
 
