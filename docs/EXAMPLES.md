@@ -7,6 +7,7 @@ This document contains practical examples for common use cases with the Gophish 
 - [Basic Operations](#basic-operations)
 - [CSV Operations](#csv-operations)
 - [Template Operations](#template-operations)
+- [Page Operations](#page-operations)
 - [Error Handling](#error-handling)
 - [Advanced Scenarios](#advanced-scenarios)
 - [Production Examples](#production-examples)
@@ -592,6 +593,647 @@ end
 
 # Usage
 suite = create_template_suite("Q4 Security Training")
+```
+
+## Page Operations
+
+### Basic Landing Page Creation
+
+```ruby
+# Simple landing page without credential capture
+simple_page = Gophish::Page.new(
+  name: "Generic Thank You Page",
+  html: <<~HTML
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Thank You</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          text-align: center; 
+          background: #f0f0f0; 
+          padding: 50px; 
+        }
+        .container { 
+          max-width: 500px; 
+          margin: 0 auto; 
+          background: white; 
+          padding: 40px; 
+          border-radius: 10px; 
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Thank You!</h1>
+        <p>Your request has been processed successfully.</p>
+        <p>You will receive a confirmation email shortly.</p>
+      </div>
+    </body>
+    </html>
+  HTML
+)
+
+if simple_page.save
+  puts "✓ Simple page created: #{simple_page.id}"
+end
+```
+
+### Landing Page with Credential Capture
+
+```ruby
+# Microsoft-style login page with credential capture
+microsoft_page = Gophish::Page.new(
+  name: "Microsoft Office 365 Login Clone",
+  html: <<~HTML,
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Microsoft Office</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+          background: #f5f5f5; 
+          display: flex; 
+          justify-content: center; 
+          align-items: center; 
+          min-height: 100vh; 
+        }
+        .login-container {
+          background: white;
+          padding: 40px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          max-width: 400px;
+          width: 100%;
+        }
+        .logo {
+          text-align: center;
+          margin-bottom: 30px;
+          color: #737373;
+          font-size: 24px;
+          font-weight: 300;
+        }
+        h1 {
+          color: #1B1B1B;
+          font-size: 24px;
+          font-weight: 600;
+          margin-bottom: 20px;
+        }
+        .form-group {
+          margin-bottom: 20px;
+        }
+        input[type="email"], input[type="password"] {
+          width: 100%;
+          padding: 12px;
+          border: 1px solid #CCCCCC;
+          border-radius: 4px;
+          font-size: 14px;
+          transition: border-color 0.3s;
+        }
+        input[type="email"]:focus, input[type="password"]:focus {
+          outline: none;
+          border-color: #0078D4;
+        }
+        .signin-button {
+          width: 100%;
+          padding: 12px;
+          background: #0078D4;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background-color 0.3s;
+        }
+        .signin-button:hover {
+          background: #106EBE;
+        }
+        .footer-links {
+          text-align: center;
+          margin-top: 20px;
+          font-size: 12px;
+        }
+        .footer-links a {
+          color: #0078D4;
+          text-decoration: none;
+          margin: 0 10px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="login-container">
+        <div class="logo">Microsoft</div>
+        <h1>Sign in</h1>
+        <form method="post" action="">
+          <div class="form-group">
+            <input type="email" name="username" placeholder="Email, phone, or Skype" required>
+          </div>
+          <div class="form-group">
+            <input type="password" name="password" placeholder="Password" required>
+          </div>
+          <button type="submit" class="signin-button">Sign in</button>
+        </form>
+        <div class="footer-links">
+          <a href="#">Can't access your account?</a>
+          <a href="#">Sign-in options</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  HTML
+  capture_credentials: true,
+  capture_passwords: true,
+  redirect_url: "https://office.com"
+)
+
+if microsoft_page.save
+  puts "✓ Microsoft login page created: #{microsoft_page.id}"
+  puts "  Captures credentials: #{microsoft_page.captures_credentials?}"
+  puts "  Captures passwords: #{microsoft_page.captures_passwords?}"
+  puts "  Redirects to: #{microsoft_page.redirect_url}"
+end
+```
+
+### Banking Login Page with Enhanced Security Theater
+
+```ruby
+# Realistic banking login page
+banking_page = Gophish::Page.new(
+  name: "SecureBank Online Banking Portal",
+  html: <<~HTML,
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>SecureBank - Online Banking</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 0; 
+          background: linear-gradient(135deg, #003366, #004499); 
+          min-height: 100vh; 
+        }
+        .header {
+          background: white;
+          padding: 15px 0;
+          border-bottom: 3px solid #003366;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header-content {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+          display: flex;
+          align-items: center;
+        }
+        .logo {
+          font-size: 24px;
+          font-weight: bold;
+          color: #003366;
+        }
+        .security-badge {
+          margin-left: auto;
+          color: #28a745;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+        }
+        .security-badge::before {
+          content: "🔒";
+          margin-right: 5px;
+        }
+        .main-content {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: calc(100vh - 80px);
+          padding: 40px 20px;
+        }
+        .login-form {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+          max-width: 400px;
+          width: 100%;
+        }
+        .form-title {
+          text-align: center;
+          color: #003366;
+          font-size: 28px;
+          margin-bottom: 30px;
+          font-weight: bold;
+        }
+        .security-notice {
+          background: #E8F4FD;
+          border: 1px solid #B8DAFF;
+          padding: 15px;
+          border-radius: 6px;
+          margin-bottom: 25px;
+          font-size: 14px;
+          color: #0C5460;
+        }
+        .form-group {
+          margin-bottom: 20px;
+        }
+        label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: bold;
+          color: #003366;
+        }
+        input[type="text"], input[type="password"] {
+          width: 100%;
+          padding: 15px;
+          border: 2px solid #CCC;
+          border-radius: 6px;
+          font-size: 16px;
+          transition: border-color 0.3s;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+          outline: none;
+          border-color: #003366;
+        }
+        .login-button {
+          width: 100%;
+          padding: 15px;
+          background: #003366;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 18px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: background-color 0.3s;
+        }
+        .login-button:hover {
+          background: #004499;
+        }
+        .footer-text {
+          text-align: center;
+          margin-top: 20px;
+          font-size: 12px;
+          color: #666;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="header-content">
+          <div class="logo">🏛️ SecureBank</div>
+          <div class="security-badge">256-bit SSL Encryption</div>
+        </div>
+      </div>
+      
+      <div class="main-content">
+        <div class="login-form">
+          <h1 class="form-title">Secure Login</h1>
+          
+          <div class="security-notice">
+            <strong>🔐 Security Notice:</strong> For your protection, please ensure you are on our secure website before entering your credentials.
+          </div>
+          
+          <form method="post" action="">
+            <div class="form-group">
+              <label for="username">User ID:</label>
+              <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+              <label for="password">Password:</label>
+              <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="login-button">Access My Account</button>
+          </form>
+          
+          <div class="footer-text">
+            Your connection is secured with 256-bit encryption<br>
+            © 2024 SecureBank. All rights reserved.
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  HTML
+  capture_credentials: true,
+  capture_passwords: true,
+  redirect_url: "https://www.securebank.com/login-success"
+)
+
+if banking_page.save
+  puts "✓ Banking page created: #{banking_page.id}"
+end
+```
+
+### Website Import Examples
+
+```ruby
+# Import real websites as landing pages
+def import_website_examples
+  websites_to_import = [
+    {
+      url: "https://accounts.google.com/signin",
+      name: "Google Login Clone",
+      include_resources: true
+    },
+    {
+      url: "https://login.microsoftonline.com",
+      name: "Microsoft Azure Login Clone", 
+      include_resources: false  # Faster import, basic styling only
+    },
+    {
+      url: "https://www.paypal.com/signin",
+      name: "PayPal Login Clone",
+      include_resources: true
+    }
+  ]
+
+  websites_to_import.each do |site_config|
+    puts "Importing #{site_config[:url]}"
+    
+    begin
+      # Import the website
+      imported_data = Gophish::Page.import_site(
+        site_config[:url], 
+        include_resources: site_config[:include_resources]
+      )
+      
+      # Create page from imported data
+      page = Gophish::Page.new(imported_data)
+      page.name = site_config[:name]
+      page.capture_credentials = true
+      
+      if page.save
+        puts "  ✓ Successfully imported: #{page.name} (ID: #{page.id})"
+        puts "    HTML size: #{page.html.length} characters"
+        puts "    Captures credentials: #{page.captures_credentials?}"
+      else
+        puts "  ✗ Failed to save: #{page.errors.full_messages.join(', ')}"
+      end
+      
+    rescue StandardError => e
+      puts "  ✗ Import failed: #{e.message}"
+      
+      # Create fallback manual page
+      fallback_page = create_fallback_page(site_config[:name], site_config[:url])
+      if fallback_page
+        puts "  ✓ Created fallback page: #{fallback_page.id}"
+      end
+    end
+    
+    puts
+  end
+end
+
+def create_fallback_page(name, original_url)
+  # Extract domain name for styling
+  domain = URI.parse(original_url).host.gsub('www.', '')
+  
+  fallback_page = Gophish::Page.new(
+    name: "#{name} (Manual Fallback)",
+    html: <<~HTML,
+      <html>
+      <head>
+        <title>#{domain.capitalize}</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 400px; margin: 100px auto; padding: 40px; }
+          .logo { font-size: 24px; margin-bottom: 30px; text-align: center; color: #333; }
+          input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+          button { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer; }
+          button:hover { background: #1557b0; }
+        </style>
+      </head>
+      <body>
+        <div class="logo">#{domain.capitalize}</div>
+        <form method="post">
+          <input type="email" name="username" placeholder="Email" required>
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Sign in</button>
+        </form>
+      </body>
+      </html>
+    HTML
+    capture_credentials: true
+  )
+  
+  fallback_page.save ? fallback_page : nil
+end
+
+# Run the import
+import_website_examples
+```
+
+### Page Management and Updates
+
+```ruby
+# Comprehensive page management
+class PageManager
+  def self.list_all_pages
+    pages = Gophish::Page.all
+    puts "Found #{pages.length} landing pages:"
+    
+    pages.each do |page|
+      features = []
+      features << "🔑 Captures Credentials" if page.captures_credentials?
+      features << "🔒 Captures Passwords" if page.captures_passwords?
+      features << "🔄 Has Redirect" if page.has_redirect?
+      
+      feature_text = features.any? ? " [#{features.join(', ')}]" : ""
+      puts "  #{page.id}: #{page.name}#{feature_text}"
+      
+      if page.has_redirect?
+        puts "    → Redirects to: #{page.redirect_url}"
+      end
+      
+      puts "    HTML size: #{page.html.length} characters"
+      puts
+    end
+  end
+
+  def self.update_page_security(page_id, enable_credential_capture: false, redirect_to: nil)
+    begin
+      page = Gophish::Page.find(page_id)
+    rescue StandardError
+      puts "✗ Page #{page_id} not found"
+      return false
+    end
+
+    puts "Updating security settings for '#{page.name}'"
+
+    # Update credential capture settings
+    if enable_credential_capture
+      page.capture_credentials = true
+      page.capture_passwords = true
+      puts "  ✓ Enabled credential capture"
+    else
+      page.capture_credentials = false
+      page.capture_passwords = false
+      puts "  ✓ Disabled credential capture"
+    end
+
+    # Update redirect URL
+    if redirect_to
+      page.redirect_url = redirect_to
+      puts "  ✓ Set redirect URL: #{redirect_to}"
+    end
+
+    if page.save
+      puts "  ✓ Page updated successfully"
+      true
+    else
+      puts "  ✗ Update failed: #{page.errors.full_messages.join(', ')}"
+      false
+    end
+  end
+
+  def self.clone_page(original_id, new_name, modifications = {})
+    begin
+      original = Gophish::Page.find(original_id)
+    rescue StandardError
+      puts "✗ Original page #{original_id} not found"
+      return nil
+    end
+
+    # Create clone
+    cloned_page = Gophish::Page.new(
+      name: new_name,
+      html: original.html,
+      capture_credentials: original.capture_credentials,
+      capture_passwords: original.capture_passwords,
+      redirect_url: original.redirect_url
+    )
+
+    # Apply modifications
+    modifications.each do |field, value|
+      cloned_page.send("#{field}=", value) if cloned_page.respond_to?("#{field}=")
+    end
+
+    if cloned_page.save
+      puts "✓ Page cloned successfully: '#{new_name}' (ID: #{cloned_page.id})"
+      cloned_page
+    else
+      puts "✗ Clone failed: #{cloned_page.errors.full_messages.join(', ')}"
+      nil
+    end
+  end
+end
+
+# Usage examples
+PageManager.list_all_pages
+
+# Enable security features on an existing page
+PageManager.update_page_security(
+  1, 
+  enable_credential_capture: true, 
+  redirect_to: "https://legitimate-site.com"
+)
+
+# Clone a page with modifications
+PageManager.clone_page(
+  1, 
+  "Modified Banking Page", 
+  { 
+    capture_passwords: false,
+    redirect_url: "https://different-redirect.com" 
+  }
+)
+```
+
+### A/B Testing with Multiple Page Variants
+
+```ruby
+# Create multiple variants of the same phishing page for testing
+def create_page_variants(base_name, base_html, variants)
+  created_pages = []
+  
+  variants.each_with_index do |variant, index|
+    variant_name = "#{base_name} - #{variant[:name]}"
+    
+    # Start with base HTML
+    modified_html = base_html.dup
+    
+    # Apply modifications
+    variant[:modifications].each do |search, replace|
+      modified_html.gsub!(search, replace)
+    end
+    
+    page = Gophish::Page.new(
+      name: variant_name,
+      html: modified_html,
+      capture_credentials: variant[:capture_credentials] || true,
+      capture_passwords: variant[:capture_passwords] || true,
+      redirect_url: variant[:redirect_url]
+    )
+    
+    if page.save
+      puts "✓ Created variant #{index + 1}: #{variant_name} (ID: #{page.id})"
+      created_pages << page
+    else
+      puts "✗ Failed to create variant #{index + 1}: #{page.errors.full_messages.join(', ')}"
+    end
+  end
+  
+  created_pages
+end
+
+# Example: Create different urgency levels for the same login page
+base_html = <<~HTML
+  <html>
+  <head><title>Account Security</title></head>
+  <body>
+    <h1>URGENCY_LEVEL</h1>
+    <p>MESSAGE_TEXT</p>
+    <form method="post">
+      <input type="email" name="username" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <button type="submit" style="background: BUTTON_COLOR;">BUTTON_TEXT</button>
+    </form>
+  </body>
+  </html>
+HTML
+
+variants = [
+  {
+    name: "Low Urgency",
+    modifications: {
+      "URGENCY_LEVEL" => "Account Update Available",
+      "MESSAGE_TEXT" => "Please update your account information at your convenience.",
+      "BUTTON_COLOR" => "#0078d4",
+      "BUTTON_TEXT" => "Update Account"
+    },
+    redirect_url: "https://microsoft.com"
+  },
+  {
+    name: "Medium Urgency", 
+    modifications: {
+      "URGENCY_LEVEL" => "Security Alert",
+      "MESSAGE_TEXT" => "We detected unusual activity. Please verify your account.",
+      "BUTTON_COLOR" => "#ff8c00",
+      "BUTTON_TEXT" => "Verify Now"
+    },
+    redirect_url: "https://microsoft.com/security"
+  },
+  {
+    name: "High Urgency",
+    modifications: {
+      "URGENCY_LEVEL" => "IMMEDIATE ACTION REQUIRED",
+      "MESSAGE_TEXT" => "Your account will be suspended in 24 hours! Login immediately.",
+      "BUTTON_COLOR" => "#dc3545", 
+      "BUTTON_TEXT" => "SAVE MY ACCOUNT"
+    },
+    redirect_url: "https://microsoft.com/urgent"
+  }
+]
+
+pages = create_page_variants("Microsoft Security Alert", base_html, variants)
+puts "\nCreated #{pages.length} page variants for A/B testing"
 ```
 
 ## Error Handling
