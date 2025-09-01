@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-09-01
+
+### Added
+
+- **Campaign Management System** 🎯
+  - `Gophish::Campaign` class for creating, managing, and monitoring phishing campaigns
+  - Full CRUD operations for campaigns (create, read, update, delete)
+  - Campaign scheduling with `launch_date` and `send_by_date` attributes
+  - Comprehensive campaign result tracking and analysis
+  - Timeline monitoring for detailed campaign progression
+  - Campaign status management with `#in_progress?`, `#completed?`, `#launched?` methods
+  - Campaign completion functionality with `#complete!` method
+  - Class methods for efficient data retrieval: `.get_results()`, `.get_summary()`, `.complete()`
+  - Support for referencing existing templates, pages, groups, and SMTP profiles
+  - Automatic validation of all campaign components and dependencies
+
+- **Campaign Result Analysis**
+  - `Campaign::Result` nested class for individual target interaction tracking
+  - Detailed result status methods: `#clicked?`, `#opened?`, `#sent?`, `#submitted_data?`, `#reported?`
+  - Geographic tracking with latitude/longitude coordinates
+  - IP address tracking for security analysis
+  - Comprehensive result validation and error handling
+
+- **Campaign Timeline Tracking**
+  - `Campaign::Event` nested class for timeline event management
+  - Detailed event tracking with timestamps, messages, and JSON details
+  - Event analysis methods: `#has_details?`, `#parsed_details`
+  - Complete campaign progression monitoring
+
+- **Enhanced Template Management**
+  - Added `envelope_sender` attribute to Template class for advanced email delivery control
+  - New `#has_envelope_sender?` method to check envelope sender configuration
+  - Improved email header management capabilities
+  - Enhanced template validation with envelope sender support
+
+### Changed
+
+- Updated gem version to 1.0.0 (major release with full campaign management)
+- Added `require_relative 'gophish/campaign'` to main library file
+- Enhanced Template class with envelope sender functionality
+- Improved documentation with comprehensive campaign examples
+- Updated API documentation to include all campaign-related classes and methods
+
+### Technical Enhancements
+
+- **Advanced Object Conversion System**
+  - Intelligent conversion between hash references and object instances
+  - Automatic handling of nested object relationships (templates, pages, groups, SMTP)
+  - Graceful error handling for unknown attributes during object creation
+  - Support for both string names and full object references
+
+- **Comprehensive Validation Framework**
+  - Multi-level validation for campaign components
+  - Detailed error messages for campaign structure validation
+  - Group structure validation with index-specific error reporting
+  - Result and timeline data structure validation
+  - Enhanced error handling with descriptive failure messages
+
+- **Robust API Integration**
+  - Campaign-specific API endpoints for results, summary, and completion
+  - Optimized payload building for campaign creation and updates
+  - Proper serialization of nested objects and references
+  - Enhanced error handling for API communication
+
+### Breaking Changes
+
+- This is a major version release (1.0.0) indicating API stability
+- No breaking changes from 0.4.0, fully backward compatible
+- Campaign functionality is additive and does not affect existing code
+
+### Documentation Updates
+
+- Complete campaign management examples in README.md
+- Enhanced API reference documentation for all campaign-related classes
+- Updated getting started guide with campaign examples
+- Comprehensive validation and error handling examples
+- Production-ready code examples with proper error handling
+
 ## [0.4.0] - 2025-09-01
 
 ### Added
