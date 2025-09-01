@@ -4,6 +4,7 @@ require_relative 'gophish/group'
 require_relative 'gophish/template'
 require_relative 'gophish/page'
 require_relative 'gophish/smtp'
+require_relative 'gophish/campaign'
 
 module Gophish
   class << self
