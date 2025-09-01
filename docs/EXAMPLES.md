@@ -6,6 +6,7 @@ This document contains practical examples for common use cases with the Gophish 
 
 - [Basic Operations](#basic-operations)
 - [CSV Operations](#csv-operations)
+- [Template Operations](#template-operations)
 - [Error Handling](#error-handling)
 - [Advanced Scenarios](#advanced-scenarios)
 - [Production Examples](#production-examples)
@@ -250,6 +251,347 @@ end
 
 # Usage
 group = import_large_csv("large_employee_list.csv", "All Company Employees")
+```
+
+## Template Operations
+
+### Basic Template Creation
+
+```ruby
+# Simple text and HTML template
+template = Gophish::Template.new(
+  name: "Security Awareness Training",
+  subject: "Important Security Update - Action Required",
+  html: <<~HTML,
+    <h1>Security Update Required</h1>
+    <p>Dear {{.FirstName}},</p>
+    <p>We have detected suspicious activity on your account. Please click <a href="{{.URL}}">here</a> to verify your account immediately.</p>
+    <p>This link will expire in 24 hours.</p>
+    <p>Best regards,<br>IT Security Team</p>
+  HTML
+  text: <<~TEXT
+    Security Update Required
+
+    Dear {{.FirstName}},
+
+    We have detected suspicious activity on your account. Please visit {{.URL}} to verify your account immediately.
+
+    This link will expire in 24 hours.
+
+    Best regards,
+    IT Security Team
+  TEXT
+)
+
+if template.save
+  puts "✓ Template '#{template.name}' created with ID: #{template.id}"
+else
+  puts "✗ Failed to create template: #{template.errors.full_messages}"
+end
+```
+
+### Template with Attachments
+
+```ruby
+# Create template with multiple attachments
+template = Gophish::Template.new(
+  name: "Invoice Phishing Template",
+  subject: "Invoice #{{.RId}} - Payment Due",
+  html: "<h1>Invoice Attached</h1><p>Dear {{.FirstName}},</p><p>Please find your invoice attached for immediate payment.</p>"
+)
+
+# Add PDF invoice attachment
+pdf_content = File.read("sample_invoice.pdf")
+template.add_attachment(pdf_content, "application/pdf", "invoice_#{Time.now.strftime('%Y%m%d')}.pdf")
+
+# Add company logo
+logo_content = File.read("company_logo.png")
+template.add_attachment(logo_content, "image/png", "logo.png")
+
+# Add fake Excel spreadsheet
+excel_content = File.read("expense_report.xlsx")
+template.add_attachment(excel_content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Q4_expenses.xlsx")
+
+puts "Template has #{template.attachment_count} attachments"
+
+if template.save
+  puts "✓ Template with attachments created successfully"
+end
+```
+
+### Email Import from .EML Files
+
+```ruby
+# Import existing phishing email
+def import_phishing_template(eml_file_path, template_name)
+  unless File.exist?(eml_file_path)
+    puts "✗ EML file not found: #{eml_file_path}"
+    return nil
+  end
+
+  email_content = File.read(eml_file_path)
+
+  # Import with link conversion for tracking
+  begin
+    imported_data = Gophish::Template.import_email(email_content, convert_links: true)
+  rescue StandardError => e
+    puts "✗ Email import failed: #{e.message}"
+    return nil
+  end
+
+  # Create template from imported data
+  template = Gophish::Template.new(imported_data)
+  template.name = template_name
+
+  if template.valid?
+    if template.save
+      puts "✓ Successfully imported template '#{template.name}'"
+      puts "  Subject: #{template.subject}"
+      puts "  Has HTML: #{!template.html.nil?}"
+      puts "  Has Text: #{!template.text.nil?}"
+      puts "  Attachments: #{template.attachment_count}"
+      return template
+    else
+      puts "✗ Save failed: #{template.errors.full_messages}"
+    end
+  else
+    puts "✗ Validation failed: #{template.errors.full_messages}"
+  end
+
+  nil
+end
+
+# Usage
+template = import_phishing_template("phishing_email.eml", "Imported Phishing Template")
+```
+
+### Template Management Operations
+
+```ruby
+# List all existing templates
+def list_templates
+  templates = Gophish::Template.all
+  puts "Found #{templates.length} templates:"
+
+  templates.each do |template|
+    attachment_info = template.has_attachments? ? " (#{template.attachment_count} attachments)" : ""
+    puts "  #{template.id}: #{template.name}#{attachment_info}"
+    puts "    Subject: #{template.subject}" if template.subject
+    puts "    Modified: #{template.modified_date}" if template.modified_date
+  end
+end
+
+# Update existing template
+def update_template(template_id, new_subject = nil, new_html = nil)
+  begin
+    template = Gophish::Template.find(template_id)
+  rescue StandardError
+    puts "✗ Template #{template_id} not found"
+    return false
+  end
+
+  puts "Updating template '#{template.name}'"
+
+  template.subject = new_subject if new_subject
+  template.html = new_html if new_html
+
+  if template.save
+    puts "✓ Template updated successfully"
+    true
+  else
+    puts "✗ Update failed: #{template.errors.full_messages}"
+    false
+  end
+end
+
+# Clone template with modifications
+def clone_template(original_id, new_name, modifications = {})
+  begin
+    original = Gophish::Template.find(original_id)
+  rescue StandardError
+    puts "✗ Original template #{original_id} not found"
+    return nil
+  end
+
+  # Create new template with same content
+  new_template = Gophish::Template.new(
+    name: new_name,
+    subject: original.subject,
+    html: original.html,
+    text: original.text
+  )
+
+  # Apply modifications
+  modifications.each do |field, value|
+    new_template.send("#{field}=", value) if new_template.respond_to?("#{field}=")
+  end
+
+  # Copy attachments
+  if original.has_attachments?
+    original.attachments.each do |attachment|
+      new_template.attachments << attachment.dup
+    end
+  end
+
+  if new_template.save
+    puts "✓ Template cloned as '#{new_name}' (ID: #{new_template.id})"
+    new_template
+  else
+    puts "✗ Clone failed: #{new_template.errors.full_messages}"
+    nil
+  end
+end
+
+# Usage examples
+list_templates
+update_template(1, "Updated Subject Line", "<h1>Updated HTML content</h1>")
+clone_template(1, "Modified Version", { subject: "Modified Subject" })
+```
+
+### Template Validation and Error Handling
+
+```ruby
+# Comprehensive template validation
+def validate_template_thoroughly(template)
+  puts "Validating template '#{template.name}'"
+
+  # Basic validation
+  unless template.valid?
+    puts "✗ Basic validation failed:"
+    template.errors.full_messages.each { |error| puts "    - #{error}" }
+    return false
+  end
+
+  # Content validation
+  has_html = !template.html.nil? && !template.html.strip.empty?
+  has_text = !template.text.nil? && !template.text.strip.empty?
+
+  unless has_html || has_text
+    puts "✗ Template has no content (neither HTML nor text)"
+    return false
+  end
+
+  # Gophish template variable validation
+  content = "#{template.html} #{template.text} #{template.subject}"
+  
+  # Check for common Gophish template variables
+  variables_found = content.scan(/\{\{\.(\w+)\}\}/).flatten.uniq
+  puts "  Found template variables: #{variables_found.join(', ')}" if variables_found.any?
+
+  # Warn about missing tracking URL
+  unless content.include?('{{.URL}}')
+    puts "  ⚠ Warning: No {{.URL}} tracking variable found"
+  end
+
+  # Attachment validation
+  if template.has_attachments?
+    puts "  Validating #{template.attachment_count} attachments:"
+    template.attachments.each_with_index do |attachment, index|
+      name = attachment[:name] || attachment['name']
+      type = attachment[:type] || attachment['type']
+      content = attachment[:content] || attachment['content']
+
+      puts "    #{index + 1}. #{name} (#{type})"
+
+      if content.nil? || content.empty?
+        puts "      ✗ Missing content"
+        return false
+      end
+
+      # Validate Base64 encoding
+      begin
+        Base64.strict_decode64(content)
+        puts "      ✓ Valid Base64 encoding"
+      rescue ArgumentError
+        puts "      ✗ Invalid Base64 encoding"
+        return false
+      end
+    end
+  end
+
+  puts "✓ Template validation passed"
+  true
+end
+
+# Test various template scenarios
+def test_template_scenarios
+  # Valid template
+  valid_template = Gophish::Template.new(
+    name: "Valid Template",
+    subject: "Test {{.FirstName}}",
+    html: "<p>Click {{.URL}} to continue</p>",
+    text: "Visit {{.URL}} to continue"
+  )
+  validate_template_thoroughly(valid_template)
+
+  # Invalid template (no content)
+  invalid_template = Gophish::Template.new(
+    name: "Invalid Template",
+    subject: "Test"
+  )
+  validate_template_thoroughly(invalid_template)
+
+  # Template with attachment
+  template_with_attachment = Gophish::Template.new(
+    name: "Attachment Template",
+    html: "<p>See attachment</p>"
+  )
+  template_with_attachment.add_attachment("Hello World", "text/plain", "test.txt")
+  validate_template_thoroughly(template_with_attachment)
+end
+
+test_template_scenarios
+```
+
+### Bulk Template Operations
+
+```ruby
+# Create multiple templates from a configuration
+def create_template_suite(campaign_name)
+  templates = [
+    {
+      name: "#{campaign_name} - Initial Email",
+      subject: "Important Account Update Required",
+      html: "<h1>Account Update</h1><p>Dear {{.FirstName}}, please update your account by clicking <a href='{{.URL}}'>here</a>.</p>",
+      text: "Dear {{.FirstName}}, please update your account by visiting {{.URL}}"
+    },
+    {
+      name: "#{campaign_name} - Follow-up",
+      subject: "URGENT: Account Suspension Notice",
+      html: "<h1 style='color: red;'>URGENT</h1><p>Your account will be suspended in 24 hours. Verify immediately: {{.URL}}</p>",
+      text: "URGENT: Your account will be suspended in 24 hours. Verify at {{.URL}}"
+    },
+    {
+      name: "#{campaign_name} - Final Warning",
+      subject: "Final Warning - Account Closure",
+      html: "<h1>Final Warning</h1><p>This is your last chance to save your account: {{.URL}}</p>",
+      text: "Final Warning: Last chance to save your account at {{.URL}}"
+    }
+  ]
+
+  created_templates = []
+
+  templates.each_with_index do |template_data, index|
+    puts "Creating template #{index + 1}/#{templates.length}: #{template_data[:name]}"
+
+    template = Gophish::Template.new(template_data)
+
+    if template.save
+      puts "  ✓ Created with ID: #{template.id}"
+      created_templates << template
+    else
+      puts "  ✗ Failed: #{template.errors.full_messages}"
+    end
+  end
+
+  puts "\nTemplate suite '#{campaign_name}' creation completed"
+  puts "Successfully created: #{created_templates.length}/#{templates.length} templates"
+
+  created_templates
+end
+
+# Usage
+suite = create_template_suite("Q4 Security Training")
 ```
 
 ## Error Handling
