@@ -8,16 +8,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Template Management System**
+  - `Gophish::Template` class for managing email templates
+  - Full CRUD operations for templates (create, read, update, delete) 
+  - Support for HTML and plain text email content
+  - Comprehensive validations requiring template name and content
+  - Email import functionality with `Template.import_email` class method
+  - Option to convert links during email import for tracking
+
+- **Attachment Management**
+  - Add attachments to templates with `#add_attachment` method
+  - Remove attachments by name with `#remove_attachment` method
+  - Query attachment status with `#has_attachments?` and `#attachment_count`
+  - Automatic Base64 encoding of attachment content
+  - Validation of attachment structure (content, type, name required)
+
+- **Enhanced Change Tracking**
+  - Migrated from custom change tracking to ActiveModel::Dirty
+  - Improved change detection with `#changed?` and `#clear_changes_information`
+  - Better integration with Rails-style attribute tracking
+
 - Comprehensive documentation with getting started guide, API reference, and examples
 - Enhanced README with detailed usage instructions and configuration examples
 
 ### Changed
+- **Breaking Change**: Replaced custom `@changed_attributes` system with ActiveModel::Dirty
+- Updated Base class to use `define_attribute_methods` for proper dirty tracking
+- Modified `#update_record` to include `id` in update payload for proper API calls
 - Improved error messages for validation failures
 - Enhanced CSV import validation with better error reporting
 
 ### Fixed
 - Console script requiring wrong file name (`gophish_ruby` → `gophish-ruby`)
 - Spec helper requiring wrong file name for consistent naming
+- Corrected require statement in main library file for Template class
 
 ## [0.1.0] - 2025-08-29
 
