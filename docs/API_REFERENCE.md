@@ -8,6 +8,7 @@ This document provides detailed API reference for the Gophish Ruby SDK.
 - [Base Class](#base-class)
 - [Group Class](#group-class)
 - [Template Class](#template-class)
+- [Page Class](#page-class)
 - [Error Handling](#error-handling)
 - [Examples](#examples)
 
@@ -621,6 +622,325 @@ unless template.valid?
   puts template.errors.full_messages
   # => ["Attachments item at index 0 must have a content", 
   #     "Attachments item at index 0 must have a type"]
+end
+```
+
+## Page Class
+
+The `Gophish::Page` class represents a landing page in Gophish campaigns.
+
+### Class: `Gophish::Page < Gophish::Base`
+
+#### Attributes
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | Integer | No | Unique page identifier (set by server) |
+| `name` | String | Yes | Page name |
+| `html` | String | Yes | HTML content of the page |
+| `capture_credentials` | Boolean | No | Whether to capture credentials (default: false) |
+| `capture_passwords` | Boolean | No | Whether to capture passwords (default: false) |
+| `redirect_url` | String | No | URL to redirect users after form submission |
+| `modified_date` | String | No | Last modification timestamp (set by server) |
+
+#### Validations
+
+- `name` must be present
+- `html` must be present
+
+#### Class Methods
+
+##### `.import_site(url, include_resources: false)`
+
+Import a website as a landing page template.
+
+**Parameters:**
+
+- `url` (String) - URL of the website to import
+- `include_resources` (Boolean) - Whether to include CSS, JS, and images (default: false)
+
+**Returns:** Hash of page attributes
+
+**Raises:**
+
+- `StandardError` if import fails
+
+**Example:**
+
+```ruby
+begin
+  page_data = Gophish::Page.import_site(
+    "https://login.microsoft.com",
+    include_resources: true
+  )
+  
+  page = Gophish::Page.new(page_data)
+  page.name = "Imported Microsoft Login"
+  page.capture_credentials = true
+  page.save
+rescue StandardError => e
+  puts "Import failed: #{e.message}"
+end
+```
+
+#### Instance Methods
+
+##### `#captures_credentials?`
+
+Check if page is configured to capture credentials.
+
+**Returns:** Boolean
+
+**Example:**
+
+```ruby
+page = Gophish::Page.new(capture_credentials: true)
+puts page.captures_credentials?  # => true
+```
+
+##### `#captures_passwords?`
+
+Check if page is configured to capture passwords.
+
+**Returns:** Boolean
+
+**Example:**
+
+```ruby
+page = Gophish::Page.new(capture_passwords: true)
+puts page.captures_passwords?  # => true
+```
+
+##### `#has_redirect?`
+
+Check if page has a redirect URL configured.
+
+**Returns:** Boolean
+
+**Example:**
+
+```ruby
+page = Gophish::Page.new(redirect_url: "https://example.com")
+puts page.has_redirect?  # => true
+
+page = Gophish::Page.new
+puts page.has_redirect?  # => false
+```
+
+#### Usage Examples
+
+##### Create a Basic Landing Page
+
+```ruby
+page = Gophish::Page.new(
+  name: "Microsoft Login Clone",
+  html: <<~HTML
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Microsoft Account</title>
+      <style>
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background-color: #f5f5f5;
+          margin: 0;
+          padding: 40px;
+        }
+        .login-form {
+          max-width: 400px;
+          margin: 0 auto;
+          background: white;
+          padding: 40px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group { margin-bottom: 20px; }
+        input {
+          width: 100%;
+          padding: 12px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          font-size: 14px;
+        }
+        button {
+          width: 100%;
+          padding: 12px;
+          background: #0078d4;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        button:hover { background: #106ebe; }
+      </style>
+    </head>
+    <body>
+      <div class="login-form">
+        <h2>Sign in</h2>
+        <form method="post">
+          <div class="form-group">
+            <input type="email" name="username" placeholder="Email" required>
+          </div>
+          <div class="form-group">
+            <input type="password" name="password" placeholder="Password" required>
+          </div>
+          <button type="submit">Sign in</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  HTML
+)
+
+if page.save
+  puts "Landing page created with ID: #{page.id}"
+end
+```
+
+##### Create Page with Credential Capture
+
+```ruby
+page = Gophish::Page.new(
+  name: "Banking Portal - Credential Capture",
+  html: <<~HTML
+    <html>
+    <head>
+      <title>Secure Banking Portal</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #1e3d59; color: white; }
+        .container { max-width: 400px; margin: 100px auto; padding: 40px; background: white; color: black; border-radius: 10px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; }
+        button { width: 100%; padding: 12px; background: #1e3d59; color: white; border: none; border-radius: 5px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Secure Login</h2>
+        <form method="post">
+          <input type="text" name="username" placeholder="Username" required>
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Access Account</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  HTML,
+  capture_credentials: true,
+  capture_passwords: true,
+  redirect_url: "https://www.realbank.com/login"
+)
+
+puts "Page captures credentials: #{page.captures_credentials?}"
+puts "Page captures passwords: #{page.captures_passwords?}"
+puts "Page has redirect: #{page.has_redirect?}"
+
+page.save
+```
+
+##### Import Website as Landing Page
+
+```ruby
+# Import a real website
+begin
+  imported_data = Gophish::Page.import_site(
+    "https://accounts.google.com/signin",
+    include_resources: true  # Include CSS, JS, images
+  )
+  
+  page = Gophish::Page.new(imported_data)
+  page.name = "Google Login Clone"
+  page.capture_credentials = true
+  
+  if page.save
+    puts "Successfully imported Google login page"
+    puts "Page ID: #{page.id}"
+  end
+  
+rescue StandardError => e
+  puts "Failed to import site: #{e.message}"
+  
+  # Fallback to manual creation
+  page = Gophish::Page.new(
+    name: "Manual Google Login Clone",
+    html: "<html><body><h1>Google</h1><form method='post'><input name='email' type='email' placeholder='Email'><input name='password' type='password' placeholder='Password'><button type='submit'>Sign in</button></form></body></html>",
+    capture_credentials: true
+  )
+  page.save
+end
+```
+
+##### Update Existing Page
+
+```ruby
+page = Gophish::Page.find(1)
+
+# Update content
+page.html = page.html.gsub("Sign in", "Login")
+
+# Enable credential capture
+page.capture_credentials = true
+page.capture_passwords = true
+
+# Set redirect URL
+page.redirect_url = "https://legitimate-site.com"
+
+if page.save
+  puts "Page updated successfully"
+  puts "Now captures credentials: #{page.captures_credentials?}"
+end
+```
+
+##### Page Validation
+
+```ruby
+# Invalid page (missing required fields)
+page = Gophish::Page.new
+
+unless page.valid?
+  puts "Validation errors:"
+  page.errors.full_messages.each { |msg| puts "  - #{msg}" }
+  # => ["Name can't be blank", "Html can't be blank"]
+end
+
+# Valid page
+page = Gophish::Page.new(
+  name: "Valid Page",
+  html: "<html><body>Content</body></html>"
+)
+
+puts page.valid?  # => true
+```
+
+##### Checking Page Configuration
+
+```ruby
+page = Gophish::Page.find(1)
+
+# Check capabilities
+if page.captures_credentials?
+  puts "⚠️  This page will capture user credentials"
+end
+
+if page.captures_passwords?
+  puts "🔐 This page will capture passwords in plain text"
+end
+
+if page.has_redirect?
+  puts "🔄 Users will be redirected to: #{page.redirect_url}"
+else
+  puts "🛑 Users will see a generic success message"
+end
+```
+
+##### Delete Page
+
+```ruby
+page = Gophish::Page.find(1)
+
+if page.destroy
+  puts "Page deleted successfully"
+  puts "Page frozen: #{page.frozen?}"  # => true
 end
 ```
 

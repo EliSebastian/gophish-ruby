@@ -13,6 +13,8 @@ A Ruby SDK for the [Gophish](https://getgophish.com/) phishing simulation platfo
 - **CSV Import Support**: Easy bulk import of targets from CSV files
 - **Email Template Management**: Create, modify, and manage email templates with attachment support
 - **Email Import**: Import existing emails and convert them to templates
+- **Site Import**: Import landing pages directly from existing websites
+- **Page Management**: Create, modify, and manage landing pages with credential capture
 - **SSL Configuration**: Configurable SSL verification for development environments
 - **Debug Support**: Built-in debugging capabilities for API interactions
 - **Change Tracking**: Automatic tracking of attribute changes with ActiveModel::Dirty
@@ -301,6 +303,174 @@ puts group.attribute_changed?(:name)  # => true
 puts group.attribute_was(:name)  # => "Original Name"
 ```
 
+### Pages Management
+
+Pages represent landing pages that targets will see when they click on phishing links in your campaigns.
+
+#### Creating a Page
+
+```ruby
+# Create a simple landing page
+page = Gophish::Page.new(
+  name: "Microsoft Login Page",
+  html: <<~HTML
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Microsoft Account Login</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 40px; background-color: #f5f5f5; }
+        .login-container { max-width: 400px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; }
+        .form-group { margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #0078d4; color: white; border: none; border-radius: 4px; }
+      </style>
+    </head>
+    <body>
+      <div class="login-container">
+        <h2>Sign in to your account</h2>
+        <form method="post">
+          <div class="form-group">
+            <input type="email" name="email" placeholder="Email" required>
+          </div>
+          <div class="form-group">
+            <input type="password" name="password" placeholder="Password" required>
+          </div>
+          <button type="submit">Sign in</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  HTML
+)
+
+# Save the page to Gophish
+if page.save
+  puts "Page created successfully with ID: #{page.id}"
+else
+  puts "Failed to create page: #{page.errors.full_messages}"
+end
+```
+
+#### Creating a Page with Credential Capture
+
+```ruby
+# Create a page that captures login credentials
+page = Gophish::Page.new(
+  name: "Banking Login - Credential Capture",
+  html: <<~HTML
+    <html>
+    <body>
+      <h1>Online Banking</h1>
+      <form method="post">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+      </form>
+    </body>
+    </html>
+  HTML,
+  capture_credentials: true,
+  capture_passwords: true,
+  redirect_url: "https://www.realbank.com/login"
+)
+
+if page.save
+  puts "Page created with credential capture enabled"
+  puts "Captures credentials: #{page.captures_credentials?}"
+  puts "Captures passwords: #{page.captures_passwords?}"
+  puts "Has redirect: #{page.has_redirect?}"
+end
+```
+
+#### Importing a Website as a Landing Page
+
+```ruby
+# Import an existing website as a landing page template
+begin
+  imported_data = Gophish::Page.import_site(
+    "https://login.microsoft.com", 
+    include_resources: true  # Include CSS, JS, and images
+  )
+  
+  # Create a page from the imported data
+  page = Gophish::Page.new(imported_data)
+  page.name = "Imported Microsoft Login Page"
+  page.capture_credentials = true
+  
+  if page.save
+    puts "Successfully imported and created page from website"
+  end
+rescue StandardError => e
+  puts "Failed to import site: #{e.message}"
+end
+```
+
+#### Retrieving Pages
+
+```ruby
+# Get all pages
+pages = Gophish::Page.all
+puts "Found #{pages.length} pages"
+
+# Find a specific page by ID
+page = Gophish::Page.find(1)
+puts "Page: #{page.name}"
+puts "HTML length: #{page.html.length} characters"
+```
+
+#### Updating a Page
+
+```ruby
+# Update page content and settings
+page = Gophish::Page.find(1)
+page.name = "Updated Page Name"
+page.capture_credentials = true
+page.redirect_url = "https://example.com/success"
+
+# Update HTML content
+page.html = page.html.gsub("Sign in", "Login")
+
+if page.save
+  puts "Page updated successfully"
+end
+```
+
+#### Deleting a Page
+
+```ruby
+page = Gophish::Page.find(1)
+if page.destroy
+  puts "Page deleted successfully"
+end
+```
+
+### Validation and Error Handling
+
+The SDK provides comprehensive validation for pages:
+
+```ruby
+# Invalid page (missing required fields)
+page = Gophish::Page.new(name: "", html: "")
+
+unless page.valid?
+  puts "Validation errors:"
+  page.errors.full_messages.each { |msg| puts "  - #{msg}" }
+  # => ["Name can't be blank", "Html can't be blank"]
+end
+
+# Check page configuration
+page = Gophish::Page.new(
+  name: "Test Page",
+  html: "<html><body>Test</body></html>",
+  capture_credentials: true
+)
+
+if page.captures_credentials?
+  puts "This page will capture submitted credentials"
+end
+```
+
 ## API Documentation
 
 ### Core Classes
@@ -398,6 +568,35 @@ Each attachment in the `attachments` array should have:
 - Template must have a name
 - Template must have either text or HTML content (or both)
 - All attachments must have content, type, and name
+
+#### `Gophish::Page`
+
+Represents a Gophish landing page for phishing campaigns.
+
+**Attributes:**
+
+- `id` (Integer) - Unique page identifier
+- `name` (String) - Page name (required)
+- `html` (String) - HTML content of the page (required)
+- `capture_credentials` (Boolean) - Whether to capture credentials (default: false)
+- `capture_passwords` (Boolean) - Whether to capture passwords (default: false)
+- `redirect_url` (String) - URL to redirect users after form submission
+- `modified_date` (String) - Last modification timestamp
+
+**Class Methods:**
+
+- `.import_site(url, include_resources: false)` - Import a website as a landing page template
+
+**Instance Methods:**
+
+- `#captures_credentials?` - Check if page is configured to capture credentials
+- `#captures_passwords?` - Check if page is configured to capture passwords
+- `#has_redirect?` - Check if page has a redirect URL configured
+
+**Validations:**
+
+- Page must have a name
+- Page must have HTML content
 
 ## Development
 

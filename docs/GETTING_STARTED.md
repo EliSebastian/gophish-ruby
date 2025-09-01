@@ -105,6 +105,51 @@ else
 end
 ```
 
+### 5. Create Your First Landing Page
+
+Landing pages are what users see when they click phishing links:
+
+```ruby
+# Create a basic landing page
+page = Gophish::Page.new(
+  name: "Microsoft Login Page",
+  html: <<~HTML
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Microsoft Account</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #0078d4; color: white; border: none; border-radius: 4px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Sign in to your account</h2>
+        <form method="post">
+          <input type="email" name="username" placeholder="Email" required>
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Sign in</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  HTML,
+  capture_credentials: true,
+  redirect_url: "https://www.microsoft.com"
+)
+
+if page.save
+  puts "✓ Landing page created successfully with ID: #{page.id}"
+  puts "  Captures credentials: #{page.captures_credentials?}"
+else
+  puts "✗ Failed to create page:"
+  page.errors.full_messages.each { |error| puts "  - #{error}" }
+end
+```
+
 ## Common Workflows
 
 ### Importing Targets from CSV
@@ -206,6 +251,117 @@ template.add_attachment(File.read("new_file.pdf"), "application/pdf", "new_file.
 template.remove_attachment("old_file.pdf")
 
 template.save
+```
+
+### Working with Landing Pages
+
+#### Creating Pages with Different Features
+
+```ruby
+# Simple page without credential capture
+basic_page = Gophish::Page.new(
+  name: "Generic Landing Page",
+  html: "<html><body><h1>Thank you!</h1><p>Your action has been completed.</p></body></html>"
+)
+
+# Page with credential capture and redirect
+login_page = Gophish::Page.new(
+  name: "Banking Login Clone",
+  html: <<~HTML
+    <html>
+    <head>
+      <title>Secure Banking</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #003366; color: white; padding: 50px; }
+        .form-container { max-width: 350px; margin: 0 auto; background: white; color: black; padding: 30px; border-radius: 8px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; }
+        button { width: 100%; padding: 12px; background: #003366; color: white; border: none; cursor: pointer; }
+      </style>
+    </head>
+    <body>
+      <div class="form-container">
+        <h2>Online Banking Login</h2>
+        <form method="post">
+          <input type="text" name="username" placeholder="Username" required>
+          <input type="password" name="password" placeholder="Password" required>
+          <button type="submit">Login</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  HTML,
+  capture_credentials: true,
+  capture_passwords: true,
+  redirect_url: "https://www.realbank.com/login"
+)
+
+# Save both pages
+[basic_page, login_page].each do |page|
+  if page.save
+    puts "✓ Created page: #{page.name} (ID: #{page.id})"
+    puts "  Captures credentials: #{page.captures_credentials?}"
+  end
+end
+```
+
+#### Importing Pages from Existing Websites
+
+```ruby
+# Import a real website as a landing page template
+begin
+  imported_data = Gophish::Page.import_site(
+    "https://login.live.com",
+    include_resources: true  # Include CSS, JS, and images
+  )
+  
+  page = Gophish::Page.new(imported_data)
+  page.name = "Microsoft Live Login Clone"
+  page.capture_credentials = true
+  
+  if page.save
+    puts "✓ Successfully imported website as landing page"
+    puts "  Page ID: #{page.id}"
+    puts "  HTML size: #{page.html.length} characters"
+  end
+  
+rescue StandardError => e
+  puts "✗ Failed to import website: #{e.message}"
+  puts "  Falling back to manual page creation"
+  
+  # Create a manual fallback page
+  fallback_page = Gophish::Page.new(
+    name: "Manual Microsoft Login Clone",
+    html: "<html><body><h1>Microsoft</h1><form method='post'><input name='email' type='email' placeholder='Email'><input name='password' type='password' placeholder='Password'><button type='submit'>Sign in</button></form></body></html>",
+    capture_credentials: true
+  )
+  fallback_page.save
+end
+```
+
+#### Managing Existing Pages
+
+```ruby
+# List all pages
+puts "Existing pages:"
+Gophish::Page.all.each do |page|
+  credential_info = page.captures_credentials? ? " [Captures Credentials]" : ""
+  redirect_info = page.has_redirect? ? " → #{page.redirect_url}" : ""
+  puts "  #{page.id}: #{page.name}#{credential_info}#{redirect_info}"
+end
+
+# Update a page
+page = Gophish::Page.find(1)
+page.name = "Updated Page Name"
+page.capture_credentials = true
+page.redirect_url = "https://example.com/success"
+
+# Modify the HTML content
+page.html = page.html.gsub("Sign in", "Login")
+
+if page.save
+  puts "✓ Page updated successfully"
+  puts "  Now captures credentials: #{page.captures_credentials?}"
+end
 ```
 
 ### Managing Existing Groups

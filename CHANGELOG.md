@@ -7,10 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-01-15
+
 ### Added
+
+- **Page Management System**
+  - `Gophish::Page` class for managing landing pages in phishing campaigns
+  - Full CRUD operations for pages (create, read, update, delete)
+  - Support for HTML content with credential capture capabilities
+  - Comprehensive validations requiring page name and HTML content
+  - Site import functionality with `Page.import_site` class method
+  - Option to include resources (CSS, JS, images) during site import
+  - Built-in methods for checking page configuration: `#captures_credentials?`, `#captures_passwords?`, `#has_redirect?`
+
 - **Template Management System**
   - `Gophish::Template` class for managing email templates
-  - Full CRUD operations for templates (create, read, update, delete) 
+  - Full CRUD operations for templates (create, read, update, delete)
   - Support for HTML and plain text email content
   - Comprehensive validations requiring template name and content
   - Email import functionality with `Template.import_email` class method
@@ -32,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced README with detailed usage instructions and configuration examples
 
 ### Changed
+
 - **Breaking Change**: Replaced custom `@changed_attributes` system with ActiveModel::Dirty
 - Updated Base class to use `define_attribute_methods` for proper dirty tracking
 - Modified `#update_record` to include `id` in update payload for proper API calls
@@ -39,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced CSV import validation with better error reporting
 
 ### Fixed
+
 - Console script requiring wrong file name (`gophish_ruby` → `gophish-ruby`)
 - Spec helper requiring wrong file name for consistent naming
 - Corrected require statement in main library file for Template class
@@ -46,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-08-29
 
 ### Added
+
 - **Core SDK Foundation**
   - `Gophish::Configuration` class for managing API credentials and settings
   - `Gophish::Base` abstract class providing common CRUD operations
@@ -92,12 +107,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rake tasks for testing and quality checks
 
 ### Technical Details
+
 - **Dependencies**: HTTParty 0.23.1, ActiveSupport/ActiveModel/ActiveRecord 8.0+
 - **Ruby Version**: Requires Ruby >= 3.1.0
 - **Architecture**: Modular design with inheritance-based API resources
 - **Security**: Built-in API key authentication for all requests
 
 ### Development Infrastructure
+
 - Bundler gem management with proper gemspec configuration
 - GitHub integration with proper repository URLs and metadata
 - MIT license for open source distribution
