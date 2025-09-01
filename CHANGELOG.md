@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2025-01-15
+## [0.4.0] - 2025-09-01
 
 ### Added
 
@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated gem version to 0.4.0
 - Added `require_relative 'gophish/smtp'` to main library file for SMTP class availability
 
-## [0.3.0] - 2025-01-15
+## [0.3.0] - 2025-09-01
 
 ### Added
 
