@@ -9,6 +9,7 @@ This document contains practical examples for common use cases with the Gophish 
 - [Template Operations](#template-operations)
 - [Page Operations](#page-operations)
 - [SMTP Operations](#smtp-operations)
+- [Campaign Operations](#campaign-operations)
 - [Error Handling](#error-handling)
 - [Advanced Scenarios](#advanced-scenarios)
 - [Production Examples](#production-examples)
@@ -1942,6 +1943,932 @@ end
 # Usage
 SMTPTester.validate_smtp_profile(1)
 SMTPTester.security_audit_all_smtp
+```
+
+## Campaign Operations
+
+### Basic Campaign Creation
+
+```ruby
+# Create a simple campaign using existing components
+campaign = Gophish::Campaign.new(
+  name: "Q1 Security Awareness Campaign",
+  template: { name: "Security Awareness Training" },  # Reference by name
+  page: { name: "Microsoft Office 365 Login Clone" }, # Reference by name
+  groups: [{ name: "Engineering Team" }],             # Reference by name
+  smtp: { name: "Company Mail Server" },              # Reference by name
+  url: "https://training.company.com"
+)
+
+if campaign.save
+  puts "✓ Campaign created successfully!"
+  puts "  ID: #{campaign.id}"
+  puts "  Name: #{campaign.name}"
+  puts "  Status: #{campaign.status}"
+else
+  puts "✗ Failed to create campaign:"
+  campaign.errors.full_messages.each { |msg| puts "  - #{msg}" }
+end
+```
+
+### Campaign Creation with Object References
+
+```ruby
+# Create campaign using actual object instances
+template = Gophish::Template.find(1)
+page = Gophish::Page.find(2)
+group = Gophish::Group.find(3)
+smtp = Gophish::Smtp.find(4)
+
+campaign = Gophish::Campaign.new(
+  name: "Advanced Security Training",
+  template: template,    # Full template object
+  page: page,           # Full page object
+  groups: [group],      # Array of group objects
+  smtp: smtp,           # Full SMTP object
+  url: "https://secure-training.company.com"
+)
+
+if campaign.save
+  puts "✓ Campaign created with object references"
+  puts "  Template: #{campaign.template.name}"
+  puts "  Page: #{campaign.page.name}"
+  puts "  Groups: #{campaign.groups.map(&:name).join(', ')}"
+end
+```
+
+### Scheduled Campaign Creation
+
+```ruby
+# Create a campaign with specific launch timing
+scheduled_campaign = Gophish::Campaign.new(
+  name: "Monday Morning Phishing Test",
+  template: { name: "IT Security Alert" },
+  page: { name: "Corporate Portal Login" },
+  groups: [
+    { name: "Sales Team" },
+    { name: "Marketing Department" }
+  ],
+  smtp: { name: "Gmail SMTP with Authentication" },
+  url: "https://training-portal.company.com",
+  launch_date: (Time.now + 2.days).beginning_of_day.iso8601,  # Launch in 2 days at midnight
+  send_by_date: (Time.now + 2.days).noon.iso8601             # Complete by noon
+)
+
+if scheduled_campaign.save
+  puts "✓ Scheduled campaign created"
+  puts "  Launch: #{scheduled_campaign.launch_date}"
+  puts "  Send by: #{scheduled_campaign.send_by_date}"
+  puts "  Launched? #{scheduled_campaign.launched?}"
+  puts "  Has deadline? #{scheduled_campaign.has_send_by_date?}"
+end
+```
+
+### Campaign Monitoring and Analysis
+
+```ruby
+# Monitor campaign progress
+def monitor_campaign(campaign_id)
+  begin
+    campaign = Gophish::Campaign.find(campaign_id)
+  rescue StandardError => e
+    puts "✗ Campaign not found: #{e.message}"
+    return
+  end
+
+  puts "Campaign Status Report"
+  puts "=" * 50
+  puts "Name: #{campaign.name}"
+  puts "Status: #{campaign.status}"
+  puts "Created: #{campaign.created_date}"
+  puts "Launched: #{campaign.launch_date || 'Not launched'}"
+  puts "Completed: #{campaign.completed_date || 'Not completed'}"
+  puts
+
+  # Status checks
+  puts "Status Checks:"
+  puts "  In progress? #{campaign.in_progress?}"
+  puts "  Completed? #{campaign.completed?}"
+  puts "  Has launch date? #{campaign.launched?}"
+  puts "  Has deadline? #{campaign.has_send_by_date?}"
+  puts
+
+  # Results analysis
+  if campaign.results.any?
+    puts "Results Summary:"
+    puts "  Total targets: #{campaign.results.length}"
+    
+    # Count by status
+    status_counts = Hash.new(0)
+    campaign.results.each { |result| status_counts[result.status] += 1 }
+    
+    status_counts.each do |status, count|
+      percentage = (count.to_f / campaign.results.length * 100).round(1)
+      puts "  #{status}: #{count} (#{percentage}%)"
+    end
+    
+    # Behavior analysis
+    clicked_count = campaign.results.count(&:clicked?)
+    opened_count = campaign.results.count(&:opened?)
+    reported_count = campaign.results.count(&:reported?)
+    submitted_count = campaign.results.count(&:submitted_data?)
+    
+    puts "\nBehavior Analysis:"
+    puts "  📧 Opened emails: #{opened_count}"
+    puts "  🔗 Clicked links: #{clicked_count}"
+    puts "  📝 Submitted data: #{submitted_count}"
+    puts "  🚨 Reported phishing: #{reported_count}"
+    puts "  📊 Click rate: #{(clicked_count.to_f / campaign.results.length * 100).round(1)}%"
+    puts "  🛡️ Report rate: #{(reported_count.to_f / campaign.results.length * 100).round(1)}%"
+    
+    # Individual results
+    if campaign.results.length <= 10
+      puts "\nIndividual Results:"
+      campaign.results.each do |result|
+        icon = result.clicked? ? "🔗" : result.opened? ? "📧" : result.reported? ? "🚨" : "📬"
+        puts "  #{icon} #{result.email} - #{result.status}"
+      end
+    end
+  else
+    puts "No results available yet"
+  end
+
+  # Timeline events
+  if campaign.timeline.any?
+    puts "\nRecent Timeline Events (last 5):"
+    campaign.timeline.last(5).each do |event|
+      puts "  #{event.time}: #{event.message}"
+      puts "    Email: #{event.email}" if event.email
+    end
+  end
+end
+
+# Usage
+monitor_campaign(1)
+```
+
+### Campaign Management Operations
+
+```ruby
+# List all campaigns with status
+def list_all_campaigns
+  campaigns = Gophish::Campaign.all
+  puts "Found #{campaigns.length} campaigns:"
+  puts
+
+  campaigns.each do |campaign|
+    status_icon = case campaign.status
+                  when "In progress" then "🔄"
+                  when "Completed" then "✅"
+                  else "⏸️"
+                  end
+    
+    puts "#{status_icon} #{campaign.id}: #{campaign.name}"
+    puts "    Status: #{campaign.status}"
+    puts "    Created: #{campaign.created_date}"
+    puts "    Launched: #{campaign.launch_date || 'Not scheduled'}"
+    
+    if campaign.results.any?
+      total = campaign.results.length
+      clicked = campaign.results.count(&:clicked?)
+      puts "    Results: #{clicked}/#{total} clicked (#{(clicked.to_f/total*100).round(1)}%)"
+    end
+    puts
+  end
+end
+
+# Complete a running campaign
+def complete_campaign(campaign_id)
+  begin
+    campaign = Gophish::Campaign.find(campaign_id)
+  rescue StandardError => e
+    puts "✗ Campaign not found: #{e.message}"
+    return false
+  end
+
+  unless campaign.in_progress?
+    puts "✗ Campaign '#{campaign.name}' is not in progress (status: #{campaign.status})"
+    return false
+  end
+
+  puts "Completing campaign '#{campaign.name}'..."
+  
+  begin
+    result = campaign.complete!
+    
+    if result['success']
+      puts "✓ Campaign completed successfully"
+      puts "  New status: #{campaign.status}"
+      puts "  Completed date: #{campaign.completed_date}"
+      return true
+    else
+      puts "✗ Failed to complete campaign: #{result['message'] || 'Unknown error'}"
+      return false
+    end
+  rescue StandardError => e
+    puts "✗ Error completing campaign: #{e.message}"
+    return false
+  end
+end
+
+# Clone campaign with modifications
+def clone_campaign(original_id, new_name, modifications = {})
+  begin
+    original = Gophish::Campaign.find(original_id)
+  rescue StandardError => e
+    puts "✗ Original campaign not found: #{e.message}"
+    return nil
+  end
+
+  puts "Cloning campaign '#{original.name}' as '#{new_name}'"
+  
+  # Create clone with same settings
+  cloned_campaign = Gophish::Campaign.new(
+    name: new_name,
+    template: original.template,
+    page: original.page,
+    groups: original.groups,
+    smtp: original.smtp,
+    url: original.url,
+    launch_date: original.launch_date,
+    send_by_date: original.send_by_date
+  )
+
+  # Apply modifications
+  modifications.each do |field, value|
+    if cloned_campaign.respond_to?("#{field}=")
+      cloned_campaign.send("#{field}=", value)
+      puts "  Modified #{field}: #{value}"
+    else
+      puts "  ⚠️ Unknown field: #{field}"
+    end
+  end
+
+  if cloned_campaign.save
+    puts "✓ Campaign cloned successfully (ID: #{cloned_campaign.id})"
+    return cloned_campaign
+  else
+    puts "✗ Clone failed:"
+    cloned_campaign.errors.full_messages.each { |msg| puts "  - #{msg}" }
+    return nil
+  end
+end
+
+# Usage examples
+list_all_campaigns
+complete_campaign(1)
+
+# Clone with new launch date
+cloned = clone_campaign(1, "Cloned Security Training", {
+  launch_date: (Time.now + 1.week).iso8601,
+  url: "https://testing.company.com"
+})
+```
+
+### Complete Campaign Workflow
+
+```ruby
+# End-to-end campaign creation and management
+class CampaignManager
+  def initialize
+    @logger = Logger.new(STDOUT)
+  end
+
+  def create_complete_campaign(config)
+    @logger.info "Creating complete campaign: #{config[:name]}"
+    
+    # Step 1: Create target group
+    group = create_or_find_group(config[:group_name], config[:csv_file])
+    return nil unless group
+
+    # Step 2: Create template
+    template = create_template(config[:template])
+    return nil unless template
+
+    # Step 3: Create landing page
+    page = create_page(config[:page])
+    return nil unless page
+
+    # Step 4: Create SMTP profile
+    smtp = create_or_find_smtp(config[:smtp])
+    return nil unless smtp
+
+    # Step 5: Create campaign
+    campaign = create_campaign(config, template, page, group, smtp)
+    return nil unless campaign
+
+    @logger.info "Campaign creation completed successfully"
+    campaign
+  end
+
+  private
+
+  def create_or_find_group(name, csv_file)
+    @logger.info "Creating group: #{name}"
+    
+    # Check if group already exists
+    existing_groups = Gophish::Group.all
+    existing = existing_groups.find { |g| g.name == name }
+    
+    if existing
+      @logger.info "Using existing group: #{name} (#{existing.targets.length} targets)"
+      return existing
+    end
+
+    # Create new group
+    group = Gophish::Group.new(name: name)
+    
+    if csv_file && File.exist?(csv_file)
+      csv_content = File.read(csv_file)
+      group.import_csv(csv_content)
+      @logger.info "Imported #{group.targets.length} targets from #{csv_file}"
+    else
+      @logger.warn "No CSV file provided or file not found: #{csv_file}"
+      return nil
+    end
+
+    if group.save
+      @logger.info "Group created successfully (ID: #{group.id})"
+      return group
+    else
+      @logger.error "Failed to create group: #{group.errors.full_messages.join(', ')}"
+      return nil
+    end
+  end
+
+  def create_template(config)
+    @logger.info "Creating template: #{config[:name]}"
+    
+    template = Gophish::Template.new(
+      name: config[:name],
+      envelope_sender: config[:envelope_sender],
+      subject: config[:subject],
+      html: config[:html],
+      text: config[:text]
+    )
+
+    # Add attachments if specified
+    if config[:attachments]
+      config[:attachments].each do |attachment_config|
+        file_content = File.read(attachment_config[:file_path])
+        template.add_attachment(
+          file_content, 
+          attachment_config[:content_type], 
+          attachment_config[:filename]
+        )
+        @logger.info "Added attachment: #{attachment_config[:filename]}"
+      end
+    end
+
+    if template.save
+      @logger.info "Template created successfully (ID: #{template.id})"
+      return template
+    else
+      @logger.error "Failed to create template: #{template.errors.full_messages.join(', ')}"
+      return nil
+    end
+  end
+
+  def create_page(config)
+    @logger.info "Creating page: #{config[:name]}"
+    
+    page = Gophish::Page.new(
+      name: config[:name],
+      html: config[:html],
+      capture_credentials: config[:capture_credentials] || false,
+      capture_passwords: config[:capture_passwords] || false,
+      redirect_url: config[:redirect_url]
+    )
+
+    if page.save
+      @logger.info "Page created successfully (ID: #{page.id})"
+      return page
+    else
+      @logger.error "Failed to create page: #{page.errors.full_messages.join(', ')}"
+      return nil
+    end
+  end
+
+  def create_or_find_smtp(config)
+    @logger.info "Creating SMTP profile: #{config[:name]}"
+    
+    # Check if SMTP profile already exists
+    existing_smtps = Gophish::Smtp.all
+    existing = existing_smtps.find { |s| s.name == config[:name] }
+    
+    if existing
+      @logger.info "Using existing SMTP profile: #{config[:name]}"
+      return existing
+    end
+
+    smtp = Gophish::Smtp.new(
+      name: config[:name],
+      host: config[:host],
+      from_address: config[:from_address],
+      username: config[:username],
+      password: config[:password],
+      ignore_cert_errors: config[:ignore_cert_errors] || false
+    )
+
+    # Add headers if specified
+    if config[:headers]
+      config[:headers].each do |key, value|
+        smtp.add_header(key, value)
+      end
+      @logger.info "Added #{config[:headers].length} custom headers"
+    end
+
+    if smtp.save
+      @logger.info "SMTP profile created successfully (ID: #{smtp.id})"
+      return smtp
+    else
+      @logger.error "Failed to create SMTP profile: #{smtp.errors.full_messages.join(', ')}"
+      return nil
+    end
+  end
+
+  def create_campaign(config, template, page, group, smtp)
+    @logger.info "Creating campaign: #{config[:name]}"
+    
+    campaign = Gophish::Campaign.new(
+      name: config[:name],
+      template: template,
+      page: page,
+      groups: [group],
+      smtp: smtp,
+      url: config[:url],
+      launch_date: config[:launch_date],
+      send_by_date: config[:send_by_date]
+    )
+
+    if campaign.save
+      @logger.info "Campaign created successfully (ID: #{campaign.id})"
+      @logger.info "Campaign components:"
+      @logger.info "  Template: #{template.name} (ID: #{template.id})"
+      @logger.info "  Page: #{page.name} (ID: #{page.id})"
+      @logger.info "  Group: #{group.name} (#{group.targets.length} targets)"
+      @logger.info "  SMTP: #{smtp.name} (#{smtp.host})"
+      return campaign
+    else
+      @logger.error "Failed to create campaign: #{campaign.errors.full_messages.join(', ')}"
+      return nil
+    end
+  end
+end
+
+# Usage example with complete configuration
+manager = CampaignManager.new
+
+campaign_config = {
+  name: "Q2 2024 Security Awareness Campaign",
+  group_name: "All Employees Q2",
+  csv_file: "employees_q2.csv",
+  template: {
+    name: "IT Security Alert - Q2 2024",
+    envelope_sender: "noreply@company.com",
+    subject: "URGENT: Security Update Required",
+    html: <<~HTML,
+      <html>
+      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+          <h2 style="color: #dc3545;">🔒 Security Alert</h2>
+          <p>Dear {{.FirstName}} {{.LastName}},</p>
+          <p>We have detected suspicious activity on your account and need you to verify your credentials immediately.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="{{.URL}}" style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              Verify Account Now
+            </a>
+          </div>
+          <p><small>This verification link will expire in 24 hours.</small></p>
+          <p>Best regards,<br>IT Security Team</p>
+        </div>
+      </body>
+      </html>
+    HTML
+    text: "Security Alert: Please verify your account at {{.URL}}"
+  },
+  page: {
+    name: "Corporate Security Portal",
+    html: File.read("templates/security_portal.html"),  # Load from file
+    capture_credentials: true,
+    capture_passwords: true,
+    redirect_url: "https://company.com/security-confirmed"
+  },
+  smtp: {
+    name: "Corporate SMTP Server",
+    host: "smtp.company.com",
+    from_address: "security@company.com",
+    username: ENV['SMTP_USERNAME'],
+    password: ENV['SMTP_PASSWORD'],
+    headers: {
+      "X-Mailer" => "Corporate Security Training Platform",
+      "X-Campaign-Type" => "Security Awareness",
+      "Return-Path" => "bounces@company.com"
+    }
+  },
+  url: "https://security-portal.company.com",
+  launch_date: (Time.now + 1.day).iso8601,
+  send_by_date: (Time.now + 2.days).iso8601
+}
+
+campaign = manager.create_complete_campaign(campaign_config)
+
+if campaign
+  puts "\n🎉 Complete campaign created successfully!"
+  puts "Campaign ID: #{campaign.id}"
+  puts "Launch Date: #{campaign.launch_date}"
+  puts "Monitor progress at: https://your-gophish-server.com/campaigns/#{campaign.id}"
+else
+  puts "\n❌ Campaign creation failed. Check logs for details."
+end
+```
+
+### Campaign Results Export and Reporting
+
+```ruby
+# Advanced campaign reporting and data export
+class CampaignReporter
+  def self.generate_detailed_report(campaign_id, output_file = nil)
+    begin
+      campaign = Gophish::Campaign.find(campaign_id)
+    rescue StandardError => e
+      puts "✗ Campaign not found: #{e.message}"
+      return nil
+    end
+
+    report = build_campaign_report(campaign)
+    
+    if output_file
+      File.write(output_file, report)
+      puts "✓ Report saved to #{output_file}"
+    else
+      puts report
+    end
+    
+    report
+  end
+
+  def self.export_results_csv(campaign_id, output_file)
+    begin
+      campaign = Gophish::Campaign.find(campaign_id)
+    rescue StandardError => e
+      puts "✗ Campaign not found: #{e.message}"
+      return false
+    end
+
+    require 'csv'
+    
+    CSV.open(output_file, 'w') do |csv|
+      # Headers
+      csv << [
+        'First Name', 'Last Name', 'Email', 'Position', 'Status', 
+        'Sent Date', 'IP Address', 'Latitude', 'Longitude', 
+        'Clicked', 'Opened', 'Submitted Data', 'Reported'
+      ]
+      
+      # Data rows
+      campaign.results.each do |result|
+        csv << [
+          result.first_name,
+          result.last_name,
+          result.email,
+          result.position,
+          result.status,
+          result.send_date,
+          result.ip,
+          result.latitude,
+          result.longitude,
+          result.clicked?,
+          result.opened?,
+          result.submitted_data?,
+          result.reported?
+        ]
+      end
+    end
+    
+    puts "✓ Results exported to #{output_file}"
+    true
+  end
+
+  private
+
+  def self.build_campaign_report(campaign)
+    report = []
+    report << "=" * 80
+    report << "CAMPAIGN REPORT: #{campaign.name}"
+    report << "=" * 80
+    report << ""
+    
+    # Basic information
+    report << "📋 Basic Information:"
+    report << "  Campaign ID: #{campaign.id}"
+    report << "  Status: #{campaign.status}"
+    report << "  Created: #{campaign.created_date}"
+    report << "  Launched: #{campaign.launch_date || 'Not launched'}"
+    report << "  Completed: #{campaign.completed_date || 'Not completed'}"
+    report << ""
+    
+    # Campaign components
+    report << "🔧 Campaign Components:"
+    report << "  Template: #{campaign.template&.name || 'Unknown'}"
+    report << "  Landing Page: #{campaign.page&.name || 'Unknown'}"
+    report << "  SMTP Profile: #{campaign.smtp&.name || 'Unknown'}"
+    report << "  Target Groups: #{campaign.groups&.map(&:name)&.join(', ') || 'Unknown'}"
+    report << "  Campaign URL: #{campaign.url}"
+    report << ""
+    
+    if campaign.results.any?
+      total_targets = campaign.results.length
+      
+      # Summary statistics
+      report << "📊 Results Summary:"
+      report << "  Total Targets: #{total_targets}"
+      
+      # Count by status
+      status_counts = Hash.new(0)
+      campaign.results.each { |result| status_counts[result.status] += 1 }
+      
+      status_counts.each do |status, count|
+        percentage = (count.to_f / total_targets * 100).round(1)
+        report << "  #{status}: #{count} (#{percentage}%)"
+      end
+      
+      report << ""
+      
+      # Behavior analysis
+      sent_count = campaign.results.count(&:sent?)
+      opened_count = campaign.results.count(&:opened?)
+      clicked_count = campaign.results.count(&:clicked?)
+      submitted_count = campaign.results.count(&:submitted_data?)
+      reported_count = campaign.results.count(&:reported?)
+      
+      report << "🎯 Behavior Analysis:"
+      report << "  📧 Emails Sent: #{sent_count} (#{percentage_of(sent_count, total_targets)}%)"
+      report << "  📖 Emails Opened: #{opened_count} (#{percentage_of(opened_count, total_targets)}%)"
+      report << "  🔗 Links Clicked: #{clicked_count} (#{percentage_of(clicked_count, total_targets)}%)"
+      report << "  📝 Data Submitted: #{submitted_count} (#{percentage_of(submitted_count, total_targets)}%)"
+      report << "  🚨 Phishing Reported: #{reported_count} (#{percentage_of(reported_count, total_targets)}%)"
+      report << ""
+      
+      # Risk assessment
+      report << "⚖️ Security Risk Assessment:"
+      click_rate = percentage_of(clicked_count, total_targets)
+      report_rate = percentage_of(reported_count, total_targets)
+      
+      if click_rate >= 30
+        risk_level = "HIGH"
+        risk_icon = "🔴"
+      elsif click_rate >= 15
+        risk_level = "MEDIUM" 
+        risk_icon = "🟡"
+      else
+        risk_level = "LOW"
+        risk_icon = "🟢"
+      end
+      
+      report << "  #{risk_icon} Overall Risk Level: #{risk_level}"
+      report << "  Click Rate: #{click_rate}% (#{rate_assessment(click_rate, 'click')})"
+      report << "  Report Rate: #{report_rate}% (#{rate_assessment(report_rate, 'report')})"
+      report << ""
+      
+      # Geographic analysis
+      if campaign.results.any? { |r| r.latitude && r.longitude }
+        report << "🗺️ Geographic Distribution:"
+        locations = campaign.results
+          .select { |r| r.latitude && r.longitude }
+          .group_by { |r| "#{r.latitude.round(2)}, #{r.longitude.round(2)}" }
+        
+        locations.each do |location, results|
+          report << "  #{location}: #{results.length} interactions"
+        end
+        report << ""
+      end
+      
+      # Timeline analysis
+      if campaign.timeline.any?
+        report << "⏰ Timeline Events (last 10):"
+        campaign.timeline.last(10).each do |event|
+          report << "  #{event.time}: #{event.message}"
+        end
+        report << ""
+      end
+      
+      # Recommendations
+      report << "💡 Recommendations:"
+      recommendations = generate_recommendations(campaign, click_rate, report_rate)
+      recommendations.each { |rec| report << "  • #{rec}" }
+      
+    else
+      report << "📊 No results available yet"
+    end
+    
+    report << ""
+    report << "=" * 80
+    report << "Report generated: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}"
+    report << "=" * 80
+    
+    report.join("\n")
+  end
+
+  def self.percentage_of(count, total)
+    return 0 if total.zero?
+    (count.to_f / total * 100).round(1)
+  end
+
+  def self.rate_assessment(rate, type)
+    case type
+    when 'click'
+      case rate
+      when 0..5 then "Excellent"
+      when 6..10 then "Good" 
+      when 11..20 then "Concerning"
+      when 21..30 then "Poor"
+      else "Critical"
+      end
+    when 'report'
+      case rate
+      when 0..5 then "Critical - Low Awareness"
+      when 6..15 then "Poor - Needs Training"
+      when 16..25 then "Fair - Some Awareness"
+      when 26..40 then "Good - Decent Awareness"
+      else "Excellent - High Awareness"
+      end
+    end
+  end
+
+  def self.generate_recommendations(campaign, click_rate, report_rate)
+    recommendations = []
+    
+    if click_rate >= 20
+      recommendations << "High click rate indicates need for immediate security awareness training"
+      recommendations << "Consider conducting follow-up educational sessions for all targets"
+    end
+    
+    if report_rate <= 10
+      recommendations << "Low report rate suggests users don't know how to report phishing"
+      recommendations << "Provide clear instructions on how to report suspicious emails"
+    end
+    
+    if campaign.results.any? { |r| r.submitted_data? }
+      recommendations << "Some users submitted credentials - implement additional password security training"
+      recommendations << "Consider mandatory password changes for users who submitted data"
+    end
+    
+    # Positive reinforcement
+    if report_rate >= 25
+      recommendations << "Good report rate - consider recognizing users who reported the phishing"
+    end
+    
+    if click_rate <= 10
+      recommendations << "Low click rate indicates good security awareness - maintain current training"
+    end
+    
+    recommendations << "Schedule follow-up campaigns in 2-3 months to track improvement"
+    recommendations
+  end
+end
+
+# Usage
+CampaignReporter.generate_detailed_report(1, "campaign_1_report.txt")
+CampaignReporter.export_results_csv(1, "campaign_1_results.csv")
+```
+
+### Bulk Campaign Operations
+
+```ruby
+# Create multiple campaigns for different departments
+def create_department_campaigns
+  departments = [
+    {
+      name: "Sales Department",
+      csv_file: "sales_team.csv",
+      template_subject: "Q4 Sales Bonus Information",
+      delay_hours: 0
+    },
+    {
+      name: "HR Department", 
+      csv_file: "hr_team.csv",
+      template_subject: "Employee Benefits Update",
+      delay_hours: 24
+    },
+    {
+      name: "IT Department",
+      csv_file: "it_team.csv",
+      template_subject: "System Maintenance Notification",
+      delay_hours: 48
+    },
+    {
+      name: "Finance Department",
+      csv_file: "finance_team.csv", 
+      template_subject: "Budget Review Meeting",
+      delay_hours: 72
+    }
+  ]
+
+  created_campaigns = []
+
+  departments.each_with_index do |dept, index|
+    puts "[#{index + 1}/#{departments.length}] Creating campaign for #{dept[:name]}"
+    
+    # Create group
+    group = Gophish::Group.new(name: dept[:name])
+    if File.exist?(dept[:csv_file])
+      csv_content = File.read(dept[:csv_file])
+      group.import_csv(csv_content)
+    else
+      puts "  ⚠️ CSV file not found: #{dept[:csv_file]}"
+      next
+    end
+    
+    unless group.save
+      puts "  ✗ Failed to create group: #{group.errors.full_messages.join(', ')}"
+      next
+    end
+
+    # Create department-specific template
+    template = Gophish::Template.new(
+      name: "#{dept[:name]} - Security Test",
+      envelope_sender: "noreply@company.com",
+      subject: dept[:template_subject],
+      html: generate_department_html(dept[:name], dept[:template_subject])
+    )
+    
+    unless template.save
+      puts "  ✗ Failed to create template: #{template.errors.full_messages.join(', ')}"
+      next
+    end
+
+    # Create campaign with staggered launch
+    launch_time = Time.now + dept[:delay_hours].hours
+    
+    campaign = Gophish::Campaign.new(
+      name: "Security Awareness - #{dept[:name]}",
+      template: template,
+      page: { name: "Corporate Login Portal" },  # Assume this exists
+      groups: [group],
+      smtp: { name: "Corporate SMTP Server" },   # Assume this exists
+      url: "https://security-test.company.com",
+      launch_date: launch_time.iso8601
+    )
+    
+    if campaign.save
+      puts "  ✓ Campaign created (ID: #{campaign.id})"
+      puts "    Targets: #{group.targets.length}"
+      puts "    Launch: #{launch_time.strftime('%Y-%m-%d %H:%M')}"
+      created_campaigns << campaign
+    else
+      puts "  ✗ Failed to create campaign: #{campaign.errors.full_messages.join(', ')}"
+    end
+    
+    puts
+  end
+
+  puts "Bulk campaign creation completed"
+  puts "Successfully created: #{created_campaigns.length}/#{departments.length} campaigns"
+  
+  created_campaigns
+end
+
+def generate_department_html(department, subject)
+  <<~HTML
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">🏢 #{department}</h1>
+        <p style="margin: 10px 0 0 0; font-size: 18px;">Important Notice</p>
+      </div>
+      
+      <div style="background: white; padding: 30px; border: 1px solid #ddd; border-radius: 0 0 10px 10px;">
+        <h2 style="color: #333; margin-top: 0;">#{subject}</h2>
+        
+        <p>Dear {{.FirstName}} {{.LastName}},</p>
+        
+        <p>This message is specifically for members of the #{department}. Please review the information below and take the required action.</p>
+        
+        <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #667eea; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Action Required:</strong> Please verify your department credentials to access the updated information.</p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="{{.URL}}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+            Access #{department} Portal
+          </a>
+        </div>
+        
+        <p style="color: #666; font-size: 12px; margin-top: 30px;">
+          This is a security awareness exercise. If you believe this email is suspicious, please report it to the IT Security team.
+        </p>
+        
+        <p>Best regards,<br>
+        Corporate Communications</p>
+      </div>
+    </body>
+    </html>
+  HTML
+end
+
+# Usage
+campaigns = create_department_campaigns
 ```
 
 ## Error Handling
