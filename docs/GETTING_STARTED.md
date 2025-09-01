@@ -92,6 +92,7 @@ Templates define the email content for your phishing campaigns:
 # Create a basic email template
 template = Gophish::Template.new(
   name: "Security Awareness Test",
+  envelope_sender: "noreply@company.com",  # Separate envelope sender for delivery
   subject: "Important Security Update Required",
   html: "<h1>Security Update</h1><p>Please click <a href='{{.URL}}'>here</a> to update your password.</p>",
   text: "Security Update\n\nPlease visit {{.URL}} to update your password."
@@ -170,6 +171,63 @@ else
 end
 ```
 
+### 7. Create Your First Campaign
+
+Now that you have all the components, you can create a complete phishing campaign:
+
+```ruby
+# Create a campaign using the components you've created
+campaign = Gophish::Campaign.new(
+  name: "Security Awareness Test Campaign",
+  template: { name: "Security Awareness Test" },      # Reference the template by name
+  page: { name: "Microsoft Login Page" },             # Reference the landing page by name
+  groups: [{ name: "My First Group" }],               # Reference the group by name
+  smtp: { name: "Company Mail Server" },              # Reference the SMTP profile by name
+  url: "https://your-phishing-domain.com"             # Your campaign tracking URL
+)
+
+if campaign.save
+  puts "✓ Campaign created successfully with ID: #{campaign.id}"
+  puts "  Status: #{campaign.status}"
+  puts "  Campaign URL: #{campaign.url}"
+else
+  puts "✗ Failed to create campaign:"
+  campaign.errors.full_messages.each { |error| puts "  - #{error}" }
+end
+```
+
+### 8. Monitor Your Campaign
+
+Once your campaign is created, you can monitor its progress:
+
+```ruby
+# Find your campaign
+campaign = Gophish::Campaign.find(1)  # Replace with your campaign ID
+
+puts "Campaign: #{campaign.name}"
+puts "Status: #{campaign.status}"
+puts "In progress? #{campaign.in_progress?}"
+puts "Completed? #{campaign.completed?}"
+
+# Get campaign results
+if campaign.results.any?
+  puts "\nResults Summary:"
+  puts "  Total targets: #{campaign.results.length}"
+  
+  # Count interactions
+  clicked_count = campaign.results.count(&:clicked?)
+  opened_count = campaign.results.count(&:opened?)
+  reported_count = campaign.results.count(&:reported?)
+  
+  puts "  Emails opened: #{opened_count}"
+  puts "  Links clicked: #{clicked_count}"
+  puts "  Phishing reported: #{reported_count}"
+  puts "  Click rate: #{(clicked_count.to_f / campaign.results.length * 100).round(1)}%"
+else
+  puts "\nNo results yet - campaign may still be starting"
+end
+```
+
 ### Working with SMTP Profiles
 
 #### Creating SMTP Profiles with Authentication
@@ -238,6 +296,201 @@ end
 
 ## Common Workflows
 
+### Complete Campaign Workflow
+
+Here's a complete workflow showing how to create all components and run a campaign:
+
+```ruby
+# Step 1: Create target group
+group = Gophish::Group.new(name: "Security Training Q1")
+csv_data = <<~CSV
+  First Name,Last Name,Email,Position
+  Alice,Johnson,alice@company.com,Developer
+  Bob,Smith,bob@company.com,Manager
+  Carol,Wilson,carol@company.com,Analyst
+CSV
+group.import_csv(csv_data)
+group.save
+
+# Step 2: Create email template with envelope sender
+template = Gophish::Template.new(
+  name: "IT Security Update",
+  envelope_sender: "noreply@company.com",
+  subject: "Mandatory Security Update - Action Required",
+  html: <<~HTML
+    <html>
+    <body style="font-family: Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #d32f2f;">🔒 Security Alert</h2>
+        <p>Dear {{.FirstName}},</p>
+        <p>Our IT security team has detected unusual activity that requires immediate attention.</p>
+        <div style="background: #f5f5f5; padding: 15px; margin: 20px 0; border-left: 4px solid #d32f2f;">
+          <strong>Action Required:</strong> Please verify your account credentials immediately.
+        </div>
+        <p style="text-align: center;">
+          <a href="{{.URL}}" style="background: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+            Verify Account Now
+          </a>
+        </p>
+        <p><small>This is a security training exercise. Report suspicious emails to IT.</small></p>
+      </div>
+    </body>
+    </html>
+  HTML
+)
+template.save
+
+# Step 3: Create landing page
+page = Gophish::Page.new(
+  name: "Corporate Login Portal",
+  html: <<~HTML
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Secure Login - Company Portal</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 40px 0; min-height: 100vh; }
+        .container { max-width: 400px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
+        .header { background: #1976d2; color: white; padding: 30px; text-align: center; }
+        .form { padding: 30px; }
+        .input-group { margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #1976d2; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #1565c0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2>🏢 Company Portal</h2>
+          <p>Secure Employee Login</p>
+        </div>
+        <div class="form">
+          <form method="post">
+            <div class="input-group">
+              <input type="email" name="username" placeholder="Email Address" required>
+            </div>
+            <div class="input-group">
+              <input type="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit">Sign In</button>
+          </form>
+        </div>
+        <div class="footer">
+          Protected by advanced security protocols
+        </div>
+      </div>
+    </body>
+    </html>
+  HTML,
+  capture_credentials: true,
+  capture_passwords: true,
+  redirect_url: "https://company.com/portal"
+)
+page.save
+
+# Step 4: Create SMTP profile
+smtp = Gophish::Smtp.new(
+  name: "Training SMTP Server",
+  host: "smtp.company.com",
+  from_address: "security@company.com"
+)
+smtp.add_header("X-Mailer", "Company Security Training")
+smtp.add_header("X-Training-Campaign", "Q1-2024")
+smtp.save
+
+# Step 5: Create and launch campaign
+campaign = Gophish::Campaign.new(
+  name: "Q1 2024 Security Awareness Training",
+  template: template,
+  page: page,
+  groups: [group],
+  smtp: smtp,
+  url: "https://training-portal.company.com"
+)
+
+if campaign.save
+  puts "🚀 Campaign launched successfully!"
+  puts "   Campaign ID: #{campaign.id}"
+  puts "   Template: #{campaign.template.name}"
+  puts "   Landing Page: #{campaign.page.name}"
+  puts "   Target Groups: #{campaign.groups.map(&:name).join(', ')}"
+  puts "   SMTP Profile: #{campaign.smtp.name}"
+  puts "   Total Targets: #{group.targets.length}"
+end
+```
+
+### Campaign Management and Monitoring
+
+```ruby
+# Monitor campaign progress
+campaign = Gophish::Campaign.find(1)
+
+# Check status
+puts "Campaign Status: #{campaign.status}"
+puts "In Progress? #{campaign.in_progress?}"
+
+# Analyze results in detail
+if campaign.results.any?
+  puts "\n📊 Detailed Campaign Results:"
+  
+  # Group results by status
+  status_counts = Hash.new(0)
+  campaign.results.each { |result| status_counts[result.status] += 1 }
+  
+  status_counts.each do |status, count|
+    percentage = (count.to_f / campaign.results.length * 100).round(1)
+    puts "   #{status}: #{count} (#{percentage}%)"
+  end
+  
+  # Show individual results
+  puts "\n👤 Individual Results:"
+  campaign.results.each do |result|
+    status_icon = result.clicked? ? "🔗" : result.opened? ? "📧" : result.reported? ? "🚨" : "📬"
+    puts "   #{status_icon} #{result.email} - #{result.status}"
+  end
+  
+  # Timeline analysis
+  if campaign.timeline.any?
+    puts "\n📅 Recent Timeline Events:"
+    campaign.timeline.last(5).each do |event|
+      puts "   #{event.time}: #{event.message}"
+    end
+  end
+end
+
+# Complete campaign if needed
+if campaign.in_progress?
+  puts "\n⏹️  Completing campaign..."
+  result = campaign.complete!
+  puts result['success'] ? "✅ Campaign completed" : "❌ Failed to complete"
+end
+```
+
+### Advanced Campaign Scheduling
+
+```ruby
+# Create a scheduled campaign with specific timing
+future_campaign = Gophish::Campaign.new(
+  name: "Scheduled Phishing Test - Monday Morning",
+  template: { name: "IT Security Update" },
+  page: { name: "Corporate Login Portal" },
+  groups: [{ name: "Security Training Q1" }],
+  smtp: { name: "Training SMTP Server" },
+  url: "https://training-portal.company.com",
+  launch_date: (Date.today + 7).beginning_of_day.iso8601,  # Next Monday at midnight
+  send_by_date: (Date.today + 7).noon.iso8601             # Complete by noon
+)
+
+if future_campaign.save
+  puts "📅 Scheduled campaign created for #{future_campaign.launch_date}"
+  puts "   Will complete by: #{future_campaign.send_by_date}"
+  puts "   Launched? #{future_campaign.launched?}"
+  puts "   Has deadline? #{future_campaign.has_send_by_date?}"
+end
+```
+
 ### Importing Targets from CSV
 
 The most common use case is importing a list of targets from a CSV file:
@@ -279,12 +532,36 @@ end
 
 ### Working with Templates
 
+#### Creating Templates with Envelope Sender
+
+```ruby
+# Create template with envelope sender for better email delivery control
+template = Gophish::Template.new(
+  name: "Corporate Update Template", 
+  envelope_sender: "noreply@company.com",    # Envelope sender (bounce address)
+  subject: "Important Corporate Update",
+  html: <<~HTML
+    <div style="font-family: Arial, sans-serif;">
+      <h2>IT Security Department</h2>
+      <p>Dear {{.FirstName}} {{.LastName}},</p>
+      <p>We need to update your security credentials immediately.</p>
+      <p><a href="{{.URL}}" style="background: #0066cc; color: white; padding: 10px 20px; text-decoration: none;">Update Now</a></p>
+      <p>Best regards,<br>IT Security Team</p>
+    </div>
+  HTML
+)
+
+puts "Has envelope sender: #{template.has_envelope_sender?}"
+template.save
+```
+
 #### Creating Templates with Attachments
 
 ```ruby
 # Create template with file attachments
 template = Gophish::Template.new(
   name: "Invoice Template",
+  envelope_sender: "billing@company.com",
   subject: "Your Invoice #{{.RId}}",
   html: "<p>Dear {{.FirstName}},</p><p>Please find your invoice attached.</p>"
 )
