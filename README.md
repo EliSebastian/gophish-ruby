@@ -11,9 +11,11 @@ A Ruby SDK for the [Gophish](https://getgophish.com/) phishing simulation platfo
 - **ActiveModel Integration**: Familiar Rails-like attributes, validations, and callbacks
 - **Automatic Authentication**: Built-in API key authentication for all requests
 - **CSV Import Support**: Easy bulk import of targets from CSV files
+- **Email Template Management**: Create, modify, and manage email templates with attachment support
+- **Email Import**: Import existing emails and convert them to templates
 - **SSL Configuration**: Configurable SSL verification for development environments
 - **Debug Support**: Built-in debugging capabilities for API interactions
-- **Change Tracking**: Automatic tracking of attribute changes
+- **Change Tracking**: Automatic tracking of attribute changes with ActiveModel::Dirty
 - **Comprehensive Validation**: Built-in validations for all data models
 
 ## Installation
@@ -184,9 +186,110 @@ unless group.valid?
 end
 ```
 
+### Templates Management
+
+Templates define the email content for your phishing campaigns, including HTML/text content and attachments.
+
+#### Creating a Template
+
+```ruby
+# Create a new email template
+template = Gophish::Template.new(
+  name: "Phishing Awareness Test",
+  subject: "Security Update Required",
+  html: "<h1>Important Security Update</h1><p>Please click <a href='{{.URL}}'>here</a> to update your password.</p>",
+  text: "Important Security Update\n\nPlease visit {{.URL}} to update your password."
+)
+
+if template.save
+  puts "Template created successfully with ID: #{template.id}"
+else
+  puts "Failed to create template: #{template.errors.full_messages}"
+end
+```
+
+#### Adding Attachments
+
+```ruby
+template = Gophish::Template.new(
+  name: "Invoice Template",
+  subject: "Invoice #12345",
+  html: "<p>Please find your invoice attached.</p>"
+)
+
+# Add an attachment
+file_content = File.read("path/to/invoice.pdf")
+template.add_attachment(file_content, "application/pdf", "invoice.pdf")
+
+puts "Template has #{template.attachment_count} attachments"
+```
+
+#### Managing Attachments
+
+```ruby
+# Check if template has attachments
+if template.has_attachments?
+  puts "Template has attachments"
+end
+
+# Remove an attachment by name
+template.remove_attachment("invoice.pdf")
+puts "Attachments remaining: #{template.attachment_count}"
+```
+
+#### Importing Email Content
+
+```ruby
+# Import an existing email (.eml file content)
+email_content = File.read("path/to/email.eml")
+
+imported_data = Gophish::Template.import_email(
+  email_content, 
+  convert_links: true  # Convert links to Gophish tracking format
+)
+
+# Create template from imported data
+template = Gophish::Template.new(imported_data)
+template.name = "Imported Email Template"
+template.save
+```
+
+#### Retrieving Templates
+
+```ruby
+# Get all templates
+templates = Gophish::Template.all
+puts "Found #{templates.length} templates"
+
+# Find a specific template by ID
+template = Gophish::Template.find(1)
+puts "Template: #{template.name}"
+```
+
+#### Updating a Template
+
+```ruby
+template = Gophish::Template.find(1)
+template.subject = "Updated Subject Line"
+template.html = "<h1>Updated Content</h1>"
+
+if template.save
+  puts "Template updated successfully"
+end
+```
+
+#### Deleting a Template
+
+```ruby
+template = Gophish::Template.find(1)
+if template.destroy
+  puts "Template deleted successfully"
+end
+```
+
 ### Change Tracking
 
-The SDK automatically tracks changes to attributes:
+The SDK automatically tracks changes to attributes using ActiveModel::Dirty:
 
 ```ruby
 group = Gophish::Group.find(1)
@@ -257,6 +360,44 @@ Each target in the `targets` array should have:
 **Instance Methods:**
 
 - `#import_csv(csv_data)` - Import targets from CSV data
+
+#### `Gophish::Template`
+
+Represents a Gophish email template.
+
+**Attributes:**
+
+- `id` (Integer) - Unique template identifier
+- `name` (String) - Template name (required)
+- `subject` (String) - Email subject line
+- `text` (String) - Plain text email content
+- `html` (String) - HTML email content
+- `modified_date` (String) - Last modification timestamp
+- `attachments` (Array) - Array of attachment hashes
+
+**Attachment Structure:**
+Each attachment in the `attachments` array should have:
+
+- `content` (String) - Base64 encoded file content (required)
+- `type` (String) - MIME type of the attachment (required)
+- `name` (String) - Filename of the attachment (required)
+
+**Class Methods:**
+
+- `.import_email(content, convert_links: false)` - Import email content and return template data
+
+**Instance Methods:**
+
+- `#add_attachment(content, type, name)` - Add an attachment to the template
+- `#remove_attachment(name)` - Remove an attachment by filename
+- `#has_attachments?` - Check if template has any attachments
+- `#attachment_count` - Get the number of attachments
+
+**Validations:**
+
+- Template must have a name
+- Template must have either text or HTML content (or both)
+- All attachments must have content, type, and name
 
 ## Development
 

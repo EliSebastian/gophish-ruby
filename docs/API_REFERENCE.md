@@ -7,6 +7,7 @@ This document provides detailed API reference for the Gophish Ruby SDK.
 - [Configuration](#configuration)
 - [Base Class](#base-class)
 - [Group Class](#group-class)
+- [Template Class](#template-class)
 - [Error Handling](#error-handling)
 - [Examples](#examples)
 
@@ -125,7 +126,7 @@ Create or update the resource on the server.
 **Side Effects:**
 
 - Sets `@persisted` to true on success
-- Clears `@changed_attributes` on success
+- Clears change tracking information on success
 - Adds errors to `#errors` on failure
 
 **Example:**
@@ -207,7 +208,7 @@ group = Gophish::Group.new
 puts group.new_record?  # => true
 ```
 
-##### `#changed_attributes`
+##### `#changed`
 
 Get array of attribute names that have changed.
 
@@ -218,7 +219,23 @@ Get array of attribute names that have changed.
 ```ruby
 group = Gophish::Group.find(1)
 group.name = "New Name"
-puts group.changed_attributes  # => ["name"]
+puts group.changed  # => ["name"]
+```
+
+##### `#changed?`
+
+Check if any attributes have changed.
+
+**Returns:** Boolean
+
+**Example:**
+
+```ruby
+group = Gophish::Group.find(1)
+puts group.changed?  # => false
+
+group.name = "New Name"
+puts group.changed?  # => true
 ```
 
 ##### `#attribute_changed?(attr)`
@@ -236,8 +253,8 @@ Check if a specific attribute has changed.
 ```ruby
 group = Gophish::Group.find(1)
 group.name = "New Name"
+puts group.name_changed?  # => true (using dynamic method)
 puts group.attribute_changed?(:name)  # => true
-puts group.attribute_changed?("targets")  # => false
 ```
 
 ##### `#attribute_was(attr)`
@@ -256,6 +273,7 @@ Get the previous value of a changed attribute.
 group = Gophish::Group.find(1)
 original_name = group.name
 group.name = "New Name"
+puts group.name_was  # => original_name (using dynamic method)
 puts group.attribute_was(:name)  # => original_name
 ```
 
@@ -374,6 +392,236 @@ csv_content = File.read("targets.csv")
 group = Gophish::Group.new(name: "Imported Group")
 group.import_csv(csv_content)
 group.save
+```
+
+## Template Class
+
+The `Gophish::Template` class represents an email template in Gophish.
+
+### Class: `Gophish::Template < Gophish::Base`
+
+#### Attributes
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | Integer | No | Unique template identifier (set by server) |
+| `name` | String | Yes | Template name |
+| `subject` | String | No | Email subject line |
+| `text` | String | No | Plain text email content |
+| `html` | String | No | HTML email content |
+| `modified_date` | String | No | Last modification timestamp (set by server) |
+| `attachments` | Array | No | Array of attachment hashes |
+
+#### Attachment Structure
+
+Each attachment in the `attachments` array must have:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | String | Yes | Base64 encoded file content |
+| `type` | String | Yes | MIME type (e.g., "application/pdf") |
+| `name` | String | Yes | Filename |
+
+#### Validations
+
+- `name` must be present
+- Must have either `text` or `html` content (or both)
+- Each attachment must be a Hash with required fields (`content`, `type`, `name`)
+
+#### Class Methods
+
+##### `.import_email(content, convert_links: false)`
+
+Import email content and return template data.
+
+**Parameters:**
+
+- `content` (String) - Raw email content (.eml format)
+- `convert_links` (Boolean) - Whether to convert links for Gophish tracking (default: false)
+
+**Returns:** Hash of template attributes
+
+**Raises:**
+
+- `StandardError` if import fails
+
+**Example:**
+
+```ruby
+email_content = File.read("sample.eml")
+template_data = Gophish::Template.import_email(email_content, convert_links: true)
+
+template = Gophish::Template.new(template_data)
+template.name = "Imported Template"
+template.save
+```
+
+#### Instance Methods
+
+##### `#add_attachment(content, type, name)`
+
+Add an attachment to the template.
+
+**Parameters:**
+
+- `content` (String) - File content (will be Base64 encoded automatically)
+- `type` (String) - MIME type
+- `name` (String) - Filename
+
+**Returns:** Void
+
+**Side Effects:**
+
+- Adds attachment to `attachments` array
+- Marks `attachments` attribute as changed
+
+**Example:**
+
+```ruby
+template = Gophish::Template.new(name: "Test", html: "<p>Test</p>")
+file_content = File.read("document.pdf")
+template.add_attachment(file_content, "application/pdf", "document.pdf")
+```
+
+##### `#remove_attachment(name)`
+
+Remove an attachment by filename.
+
+**Parameters:**
+
+- `name` (String) - Filename of attachment to remove
+
+**Returns:** Void
+
+**Side Effects:**
+
+- Removes matching attachment(s) from `attachments` array
+- Marks `attachments` attribute as changed if any were removed
+
+**Example:**
+
+```ruby
+template.remove_attachment("document.pdf")
+```
+
+##### `#has_attachments?`
+
+Check if template has any attachments.
+
+**Returns:** Boolean
+
+**Example:**
+
+```ruby
+if template.has_attachments?
+  puts "Template has #{template.attachment_count} attachments"
+end
+```
+
+##### `#attachment_count`
+
+Get the number of attachments.
+
+**Returns:** Integer
+
+**Example:**
+
+```ruby
+puts "Attachments: #{template.attachment_count}"
+```
+
+#### Usage Examples
+
+##### Create a Template
+
+```ruby
+template = Gophish::Template.new(
+  name: "Phishing Test Template",
+  subject: "Important Security Update",
+  html: "<h1>Security Update Required</h1><p>Please click <a href='{{.URL}}'>here</a> to update.</p>",
+  text: "Security Update Required\n\nPlease visit {{.URL}} to update your credentials."
+)
+
+if template.save
+  puts "Template created with ID: #{template.id}"
+end
+```
+
+##### Template with Attachments
+
+```ruby
+template = Gophish::Template.new(
+  name: "Invoice Template",
+  subject: "Invoice #{{.RId}}",
+  html: "<p>Please find your invoice attached.</p>"
+)
+
+# Add PDF attachment
+pdf_content = File.read("invoice.pdf")
+template.add_attachment(pdf_content, "application/pdf", "invoice.pdf")
+
+# Add image attachment
+image_content = File.read("logo.png")
+template.add_attachment(image_content, "image/png", "logo.png")
+
+template.save
+```
+
+##### Import from Email
+
+```ruby
+# Import existing email
+email_content = File.read("phishing_template.eml")
+imported_data = Gophish::Template.import_email(
+  email_content,
+  convert_links: true  # Convert links for tracking
+)
+
+template = Gophish::Template.new(imported_data)
+template.name = "Imported Phishing Template"
+template.save
+```
+
+##### Update Template
+
+```ruby
+template = Gophish::Template.find(1)
+template.subject = "Updated Subject"
+template.html = "<h1>Updated Content</h1>"
+
+# Add new attachment
+template.add_attachment(File.read("new_doc.pdf"), "application/pdf", "new_doc.pdf")
+
+# Remove old attachment
+template.remove_attachment("old_doc.pdf")
+
+template.save
+```
+
+##### Template Validation
+
+```ruby
+# Invalid template (no content)
+template = Gophish::Template.new(name: "Test Template")
+
+unless template.valid?
+  puts "Validation errors:"
+  template.errors.full_messages.each { |msg| puts "  - #{msg}" }
+  # => ["Need to specify at least plaintext or HTML content"]
+end
+
+# Invalid attachment
+template = Gophish::Template.new(
+  name: "Test",
+  html: "<p>Test</p>",
+  attachments: [{ name: "file.pdf" }]  # Missing content and type
+)
+
+unless template.valid?
+  puts template.errors.full_messages
+  # => ["Attachments item at index 0 must have a content", 
+  #     "Attachments item at index 0 must have a type"]
+end
 ```
 
 ## Error Handling

@@ -84,6 +84,27 @@ else
 end
 ```
 
+### 4. Create Your First Template
+
+Templates define the email content for your phishing campaigns:
+
+```ruby
+# Create a basic email template
+template = Gophish::Template.new(
+  name: "Security Awareness Test",
+  subject: "Important Security Update Required",
+  html: "<h1>Security Update</h1><p>Please click <a href='{{.URL}}'>here</a> to update your password.</p>",
+  text: "Security Update\n\nPlease visit {{.URL}} to update your password."
+)
+
+if template.save
+  puts "✓ Template created successfully with ID: #{template.id}"
+else
+  puts "✗ Failed to create template:"
+  template.errors.full_messages.each { |error| puts "  - #{error}" }
+end
+```
+
 ## Common Workflows
 
 ### Importing Targets from CSV
@@ -123,6 +144,68 @@ else
   puts "Validation errors:"
   group.errors.full_messages.each { |error| puts "  - #{error}" }
 end
+```
+
+### Working with Templates
+
+#### Creating Templates with Attachments
+
+```ruby
+# Create template with file attachments
+template = Gophish::Template.new(
+  name: "Invoice Template",
+  subject: "Your Invoice #{{.RId}}",
+  html: "<p>Dear {{.FirstName}},</p><p>Please find your invoice attached.</p>"
+)
+
+# Add PDF attachment
+pdf_content = File.read("sample_invoice.pdf")
+template.add_attachment(pdf_content, "application/pdf", "invoice.pdf")
+
+# Check attachments
+puts "Template has #{template.attachment_count} attachments" if template.has_attachments?
+
+template.save
+```
+
+#### Importing Email Templates
+
+```ruby
+# Import an existing email (.eml file)
+email_content = File.read("phishing_template.eml")
+
+imported_data = Gophish::Template.import_email(
+  email_content, 
+  convert_links: true  # Convert links for Gophish tracking
+)
+
+template = Gophish::Template.new(imported_data)
+template.name = "Imported Email Template"
+template.save
+
+puts "Imported template: #{template.name}"
+```
+
+#### Managing Existing Templates
+
+```ruby
+# List all templates
+puts "Existing templates:"
+Gophish::Template.all.each do |template|
+  attachment_info = template.has_attachments? ? " (#{template.attachment_count} attachments)" : ""
+  puts "  #{template.id}: #{template.name}#{attachment_info}"
+end
+
+# Update a template
+template = Gophish::Template.find(1)
+template.subject = "Updated Subject Line"
+template.html = "<h1>Updated Content</h1><p>New message content here.</p>"
+
+# Add or remove attachments
+template.add_attachment(File.read("new_file.pdf"), "application/pdf", "new_file.pdf")
+template.remove_attachment("old_file.pdf")
+
+template.save
 ```
 
 ### Managing Existing Groups
