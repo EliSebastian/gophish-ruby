@@ -303,6 +303,19 @@ module Gophish
       def submitted_data?
         status == 'Submitted Data'
       end
+
+      def to_s
+        attributes_hash = {}
+        self.class.attribute_names.each do |attr_name|
+          value = send attr_name
+          attributes_hash[attr_name.to_sym] = value unless value.nil?
+        end
+        attributes_hash.to_s
+      end
+
+      def inspect
+        to_s
+      end
     end
 
     class Event
@@ -324,6 +337,19 @@ module Gophish
         JSON.parse details
       rescue JSON::ParserError
         {}
+      end
+
+      def to_s
+        attributes_hash = {}
+        self.class.attribute_names.each do |attr_name|
+          value = send attr_name
+          attributes_hash[attr_name.to_sym] = value unless value.nil?
+        end
+        attributes_hash.to_s
+      end
+
+      def inspect
+        to_s
       end
     end
   end

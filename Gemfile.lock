@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    gophish-ruby (1.0.0)
+    gophish-ruby (1.1.1)
       activemodel (~> 8.0, >= 8.0.2.1)
       activerecord (~> 8.0, >= 8.0.2.1)
       activesupport (~> 8.0, >= 8.0.2.1)
