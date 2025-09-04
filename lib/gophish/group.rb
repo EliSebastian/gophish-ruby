@@ -24,6 +24,21 @@ module Gophish
       self.targets = targets_array
     end
 
+    def add_target(target)
+      current_targets = targets || []
+      self.targets = current_targets + [target]
+    end
+
+    def remove_target(target)
+      current_targets = targets || []
+      self.targets = current_targets.reject { |t| t == target }
+    end
+
+    def remove_target_by_email(email)
+      current_targets = targets || []
+      self.targets = current_targets.reject { |t| (t[:email] || t['email']) == email }
+    end
+
     private
 
     def validate_targets_structure
