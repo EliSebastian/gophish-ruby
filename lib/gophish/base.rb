@@ -188,7 +188,7 @@ module Gophish
     def to_s
       attributes_hash = {}
       self.class.attribute_names.each do |attr_name|
-        value = send(attr_name)
+        value = send attr_name
         attributes_hash[attr_name.to_sym] = value unless value.nil?
       end
       attributes_hash.to_s
