@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2025-09-05
+
+### Added
+
+- **Enhanced Target Management for Groups**
+  - New `#add_target(target)` method to add individual targets to existing groups
+  - New `#remove_target(target)` method to remove specific targets from groups
+  - New `#remove_target_by_email(email)` method to remove targets by email address
+  - Improved target manipulation workflow for dynamic group management
+  - Support for programmatic target list modifications without full replacement
+
+### Changed
+
+- Updated gem version to 1.1.2
+- Enhanced Group class with additional target management capabilities
+- Improved README.md with comprehensive examples of new target management methods
+- Updated API reference documentation to include new Group instance methods
+
+### Technical Details
+
+- All new methods work with existing target array structure
+- Methods maintain data integrity by working with copies of target arrays
+- Email-based removal supports both symbol and string keys for flexible target structures
+- Backward compatibility maintained with existing target management approaches
+
+### Documentation Updates
+
+- Added practical examples for add_target, remove_target, and remove_target_by_email methods
+- Updated "Managing Group Targets" section in README with new workflow examples
+- Enhanced API reference documentation with detailed method descriptions
+- Included tested code examples for all new target management functionality
+
 ## [1.0.0] - 2025-09-01
 
 ### Added
