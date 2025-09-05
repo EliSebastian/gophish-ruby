@@ -740,15 +740,81 @@ end
 group = Gophish::Group.find(1)
 group.name = "Updated Group Name"
 
-# Add new targets
-group.targets << {
+# Add new targets using the add_target method
+new_employee = {
   first_name: "New",
   last_name: "Employee",
   email: "new.employee@company.com",
   position: "Intern"
 }
+group.add_target(new_employee)
 
 group.save
+```
+
+#### Managing Individual Targets
+
+The SDK provides convenient methods for managing individual targets within groups:
+
+```ruby
+group = Gophish::Group.find(1)
+puts "Current targets: #{group.targets.length}"
+
+# Add a single target
+group.add_target({
+  first_name: "Alice",
+  last_name: "Johnson",
+  email: "alice@company.com",
+  position: "Developer"
+})
+
+# Remove a specific target (exact match required)
+target_to_remove = group.targets.find { |t| t[:email] == "old.employee@company.com" }
+group.remove_target(target_to_remove) if target_to_remove
+
+# Remove target by email address (more convenient)
+group.remove_target_by_email("departed.employee@company.com")
+
+# Save all changes
+if group.save
+  puts "✓ Group updated successfully"
+  puts "  New target count: #{group.targets.length}"
+else
+  puts "✗ Failed to update group:"
+  group.errors.full_messages.each { |error| puts "  - #{error}" }
+end
+```
+
+#### Bulk Target Management Example
+
+```ruby
+# Example: Manage a department reorganization
+group = Gophish::Group.find(1)
+
+# Add new hires
+new_hires = [
+  { first_name: "John", last_name: "Smith", email: "john.smith@company.com", position: "Junior Developer" },
+  { first_name: "Jane", last_name: "Doe", email: "jane.doe@company.com", position: "Senior Analyst" },
+  { first_name: "Bob", last_name: "Wilson", email: "bob.wilson@company.com", position: "Project Manager" }
+]
+
+new_hires.each { |hire| group.add_target(hire) }
+
+# Remove departing employees
+departing_emails = ["old.employee1@company.com", "old.employee2@company.com"]
+departing_emails.each { |email| group.remove_target_by_email(email) }
+
+# Update group name to reflect changes
+group.name = "#{group.name} - Updated #{Date.today}"
+
+if group.save
+  puts "✓ Department reorganization complete"
+  puts "  Final target count: #{group.targets.length}"
+  puts "  Added #{new_hires.length} new employees"
+  puts "  Removed #{departing_emails.length} former employees"
+else
+  puts "✗ Update failed: #{group.errors.full_messages}"
+end
 ```
 
 ### Deleting Groups

@@ -91,18 +91,62 @@ group = Gophish::Group.find(1)
 original_name = group.name
 
 group.name = "Updated Engineering Team"
-group.targets << {
+group.add_target({
   first_name: "Charlie",
   last_name: "New",
   email: "charlie@company.com",
   position: "Junior Developer"
-}
+})
 
 if group.save
   puts "✓ Updated group from '#{original_name}' to '#{group.name}'"
   puts "  Now has #{group.targets.length} targets"
 else
   puts "✗ Update failed: #{group.errors.full_messages}"
+end
+```
+
+### Managing Individual Targets
+
+```ruby
+# Advanced target management example
+group = Gophish::Group.find(1)
+puts "Starting with #{group.targets.length} targets"
+
+# Add multiple targets individually
+new_hires = [
+  { first_name: "Sarah", last_name: "Johnson", email: "sarah@company.com", position: "UX Designer" },
+  { first_name: "Mike", last_name: "Chen", email: "mike@company.com", position: "Backend Developer" },
+  { first_name: "Lisa", last_name: "Davis", email: "lisa@company.com", position: "Product Manager" }
+]
+
+new_hires.each do |hire|
+  group.add_target(hire)
+  puts "Added: #{hire[:first_name]} #{hire[:last_name]}"
+end
+
+# Remove a specific target by exact match
+target_to_remove = group.targets.find { |t| t[:email] == "former.employee@company.com" }
+if target_to_remove
+  group.remove_target(target_to_remove)
+  puts "Removed target: #{target_to_remove[:email]}"
+end
+
+# Remove targets by email (more convenient)
+departing_employees = ["john.doe@company.com", "jane.smith@company.com"]
+departing_employees.each do |email|
+  group.remove_target_by_email(email)
+  puts "Removed by email: #{email}"
+end
+
+# Save all changes
+if group.save
+  puts "✓ Target management completed"
+  puts "  Final target count: #{group.targets.length}"
+  puts "  Added #{new_hires.length} new hires"
+  puts "  Removed #{departing_employees.length + (target_to_remove ? 1 : 0)} former employees"
+else
+  puts "✗ Failed to save changes: #{group.errors.full_messages}"
 end
 ```
 
@@ -3114,7 +3158,7 @@ end
 # Usage
 group = Gophish::Group.find(1)
 group.name = "Updated Team Name"
-group.targets << { first_name: "New", last_name: "Person", email: "new@company.com", position: "Intern" }
+group.add_target({ first_name: "New", last_name: "Person", email: "new@company.com", position: "Intern" })
 
 GroupChangeTracker.log_and_save(group)
 ```
