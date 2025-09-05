@@ -131,20 +131,27 @@ group = Gophish::Group.find(1)
 puts "Group: #{group.name} with #{group.targets.length} targets"
 ```
 
-#### Updating a Group
+#### Managing Group Targets
 
 ```ruby
 # Update group attributes
 group = Gophish::Group.find(1)
 group.name = "Updated Group Name"
 
-# Add new targets
-group.targets << {
+# Add a single target
+new_target = {
   first_name: "New",
   last_name: "User",
   email: "new.user@company.com",
   position: "Intern"
 }
+group.add_target(new_target)
+
+# Remove a specific target
+group.remove_target(new_target)
+
+# Remove a target by email address
+group.remove_target_by_email("old.user@company.com")
 
 if group.save
   puts "Group updated successfully"
@@ -885,6 +892,9 @@ Each target in the `targets` array should have:
 **Instance Methods:**
 
 - `#import_csv(csv_data)` - Import targets from CSV data
+- `#add_target(target)` - Add a single target to the group
+- `#remove_target(target)` - Remove a specific target from the group
+- `#remove_target_by_email(email)` - Remove a target by email address
 
 #### `Gophish::Template`
 

@@ -343,6 +343,82 @@ group.import_csv(csv_data)
 puts group.targets.length  # => 2
 ```
 
+##### `#add_target(target)`
+
+Add a single target to the group.
+
+**Parameters:**
+
+- `target` (Hash) - Target hash with required fields (first_name, last_name, email, position)
+
+**Returns:** Void
+
+**Side Effects:**
+
+- Adds target to the current `targets` array
+- Marks `targets` attribute as changed
+
+**Example:**
+
+```ruby
+group = Gophish::Group.find(1)
+new_target = {
+  first_name: "Alice",
+  last_name: "Cooper",
+  email: "alice@example.com",
+  position: "Developer"
+}
+group.add_target(new_target)
+puts group.targets.length  # Increased by 1
+```
+
+##### `#remove_target(target)`
+
+Remove a specific target from the group.
+
+**Parameters:**
+
+- `target` (Hash) - Target hash to remove (must match exactly)
+
+**Returns:** Void
+
+**Side Effects:**
+
+- Removes matching target from `targets` array
+- Marks `targets` attribute as changed if target was found
+
+**Example:**
+
+```ruby
+group = Gophish::Group.find(1)
+target_to_remove = group.targets.first
+group.remove_target(target_to_remove)
+```
+
+##### `#remove_target_by_email(email)`
+
+Remove a target by email address.
+
+**Parameters:**
+
+- `email` (String) - Email address of target to remove
+
+**Returns:** Void
+
+**Side Effects:**
+
+- Removes target(s) with matching email from `targets` array
+- Marks `targets` attribute as changed if any targets were removed
+- Supports both symbol and string keys in target hashes
+
+**Example:**
+
+```ruby
+group = Gophish::Group.find(1)
+group.remove_target_by_email("user@example.com")
+puts "Removed target with email: user@example.com"
+```
+
 #### Usage Examples
 
 ##### Create a Group
@@ -377,15 +453,45 @@ end
 group = Gophish::Group.find(1)
 group.name = "Updated Marketing Team"
 
-# Add new target
-group.targets << {
+# Add new target using the add_target method
+new_target = {
   first_name: "Carol",
   last_name: "Brown",
   email: "carol@company.com",
   position: "Marketing Intern"
 }
+group.add_target(new_target)
 
 group.save
+```
+
+##### Managing Individual Targets
+
+```ruby
+group = Gophish::Group.find(1)
+
+# Add a single target
+group.add_target({
+  first_name: "David",
+  last_name: "Wilson",
+  email: "david@company.com",
+  position: "Designer"
+})
+
+# Remove a specific target (exact match required)
+target_to_remove = group.targets.find { |t| t[:email] == "old@company.com" }
+group.remove_target(target_to_remove) if target_to_remove
+
+# Remove target by email address (more convenient)
+group.remove_target_by_email("user@company.com")
+
+# Save all changes
+if group.save
+  puts "Group targets updated successfully"
+  puts "Current target count: #{group.targets.length}"
+else
+  puts "Failed to update group: #{group.errors.full_messages}"
+end
 ```
 
 ##### Import from CSV
